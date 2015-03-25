@@ -1,0 +1,6 @@
+1. convert rule table to binary format
+2. load rule table to memory
+3. generate translation hypothesis for a span with normal rule,including
+   3.1 generate all possible patterns for a source span
+   3.2 match each pattern in rule table
+   3.3 generate translation hypothesis according to the target side of each matched pattern       checked
