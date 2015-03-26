@@ -195,6 +195,7 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	vector<Pattern> possible_patterns;
 	get_patterns_with_one_terminal(beg,span,possible_patterns);
 	get_patterns_with_two_terminals(beg,span,possible_patterns);
+	get_patterns_for_glue_rule(beg,span,possible_patterns);
 
 	vector<Rule> applicable_rules;
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
@@ -295,6 +296,29 @@ void SentenceTranslator::get_patterns_with_two_terminals(const size_t beg,const 
 				}
 			}
 		}
+	}
+}
+
+/**************************************************************************************
+ 1. 函数功能: 获取当前跨度能匹配的glue pattern
+ 2. 入口参数: 当前跨度的起始位置和长度
+ 3. 出口参数: 能匹配的pattern
+ 4. 算法简介: 按照第一个非终结符的长度遍历所有可能的pattern
+************************************************************************************* */
+void SentenceTranslator::get_patterns_for_glue_rule(const size_t beg,const size_t span,vector<Pattern> &possible_patterns)
+{
+	if (beg != 0 || span == 0)                                          //当前span不从句首开始或者只包含一个单词
+		return;
+	for (int nt1_span=0;nt1_span<span;nt1_span++)
+	{
+		vector<int> src_ids;
+		src_ids.push_back(src_vocab->get_id("[X][X]"));
+		src_ids.push_back(src_vocab->get_id("[X][X]"));
+		Pattern pattern;
+		pattern.src_ids = src_ids;
+		pattern.span_src_x1 = make_pair(0,nt1_span);
+		pattern.span_src_x2 = make_pair(nt1_span+1,span-nt1_span-1);
+		possible_patterns.push_back(pattern);
 	}
 }
 
