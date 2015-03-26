@@ -6,8 +6,8 @@
 //生成候选所使用的规则信息
 struct Rule
 {
-	vector<int> src_rule;
-	vector<int> tgt_rule;
+	vector<int> src_ids;      //规则源端符号（包括终结符和非终结符）id序列
+	vector<int> tgt_ids;      //规则目标端符号（包括终结符和非终结符）id序列
 	pair<int,int> span_x1;    //用来表示规则目标端第一个非终结符在源端的起始位置和跨度长度
 	pair<int,int> span_x2;    //同上
 };

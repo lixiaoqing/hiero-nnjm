@@ -2,5 +2,8 @@
 2. load rule table to memory 																	  checked
 3. generate translation hypothesis for a span with normal rule,including
    3.1 generate all possible patterns for a source span 										  checked
-   3.2 match each pattern in rule table
+   3.2 match each pattern in rule table 														  checked
    3.3 generate translation hypothesis according to the target side of each matched pattern       checked
+
+NEW
+generate possible patterns according to existing patterns with smaller span

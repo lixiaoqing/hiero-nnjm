@@ -38,9 +38,9 @@ lm::WordIndex LanguageModel::convert_to_kenlm_id(int wid)
 
 double LanguageModel::cal_increased_lm_score(Cand* cand) 
 {
-	RuleScore<Model> rule_score(*kenlm,cand->lm_state);  //TODO 计算预言模型增量
+	RuleScore<Model> rule_score(*kenlm,cand->lm_state);
 	int nonterminal_rank = 1;
-	for (auto wid : cand->applied_rule.tgt_rule)
+	for (auto wid : cand->applied_rule.tgt_ids)
 	{
 		if (wid == nonterminal_wid)
 		{

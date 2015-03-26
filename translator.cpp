@@ -143,12 +143,12 @@ vector<string> SentenceTranslator::get_applied_rules(size_t sen_id)
 void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 {
 	string rule;
-	for (auto src_wid : cand->applied_rule.src_rule)
+	for (auto src_wid : cand->applied_rule.src_ids)
 	{
 		rule += src_vocab->get_word(src_wid)+" ";
 	}
 	rule += "||| ";
-	for (auto tgt_wid : cand->applied_rule.tgt_rule)
+	for (auto tgt_wid : cand->applied_rule.tgt_ids)
 	{
 		rule += tgt_vocab->get_word(tgt_wid)+" ";
 	}
@@ -191,13 +191,38 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 {
 	Candpq candpq_merge;			//优先级队列,用来临时存储通过合并得到的候选
 
-	//生成能与当前跨度对应的字符串匹配的所有pattern，一一拿到规则表中匹配，找出能用的规则
+	//生成能与当前跨度对应的字符串匹配的所有pattern
 	vector<Pattern> possible_patterns;
 	get_patterns_with_one_terminal(beg,span,possible_patterns);
 	get_patterns_with_two_terminals(beg,span,possible_patterns);
 	get_patterns_for_glue_rule(beg,span,possible_patterns);
 
+	//将生成的pattern一一拿到规则表中匹配，找出能用的规则
 	vector<Rule> applicable_rules;
+	for (auto &pattern : possible_patterns)
+	{
+		vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(pattern.src_ids,0);
+		if (matched_rules_for_prefixes.size() == pattern.src_ids.size() || matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
+		{
+			for (const auto &tgt_rule : *matched_rules_for_prefixes.at(span))
+			{
+				Rule rule;
+				rule.src_ids = pattern.src_ids;
+				rule.tgt_ids = tgt_rule.wids;
+				if (tgt_rule.rule_type == 3)
+				{
+					rule.span_x1 = pattern.span_src_x2;
+					rule.span_x2 = pattern.span_src_x1;
+				}
+				else
+				{
+					rule.span_x1 = pattern.span_src_x1;
+					rule.span_x2 = pattern.span_src_x2;
+				}
+				applicable_rules.push_back(rule);
+			}
+		}
+	}
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : applicable_rules)
 	{
@@ -336,14 +361,14 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		Cand *cand_x2 = candbeam_matrix.at(rule.span_x2.first).at(rule.span_x2.second).at(rank_x2);
 		Cand* cand = new Cand;
 		cand->applied_rule = rule;
-		cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule.size() - 2;
+		cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_ids.size() - 2;
 		cand->rule_num = cand_x1->rule_num + cand_x2->rule_num + 1;
 		cand->rank_x1 = rank_x1;
 		cand->rank_x2 = rank_x2;
 		cand->child_x1 = cand_x1;
 		cand->child_x2 = cand_x2;
 		int nonterminal_rank = 1;
-		for (auto tgt_wid : rule.tgt_rule)
+		for (auto tgt_wid : rule.tgt_ids)
 		{
 			if (tgt_wid == tgt_vocab->get_id("[X][X]"))
 			{
@@ -377,13 +402,13 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		Cand *cand_x1 = candbeam_matrix.at(rule.span_x1.first).at(rule.span_x1.second).at(rank_x1);
 		Cand* cand = new Cand;
 		cand->applied_rule = rule;
-		cand->tgt_word_num = cand_x1->tgt_word_num + rule.tgt_rule.size() - 1;
+		cand->tgt_word_num = cand_x1->tgt_word_num + rule.tgt_ids.size() - 1;
 		cand->rule_num = cand_x1->rule_num + 1;
 		cand->rank_x1 = rank_x1;
 		cand->rank_x2 = -1;
 		cand->child_x1 = cand_x1;
 		cand->child_x2 = NULL;
-		for (auto tgt_wid : rule.tgt_rule)
+		for (auto tgt_wid : rule.tgt_ids)
 		{
 			if (tgt_wid == tgt_vocab->get_id("[X][X]"))
 			{
