@@ -24,8 +24,7 @@ LanguageModel::LanguageModel(const string &lm_file, Vocab *tgt_vocab)
 	conf.enumerate_vocab = &id_converter;
 	kenlm = new Model(lm_file.c_str(), conf);
 	EOS = convert_to_kenlm_id(tgt_vocab->get_id("</s>"));
-	wid_x1 = tgt_vocab->get_id("[X1]");
-	wid_x2 = tgt_vocab->get_id("[X2]");
+	nonterminal_wid = tgt_vocab->get_id("[X][X]");
 	cout<<"load language model file "<<lm_file<<" over\n";
 };
 
@@ -40,15 +39,20 @@ lm::WordIndex LanguageModel::convert_to_kenlm_id(int wid)
 double LanguageModel::cal_increased_lm_score(Cand* cand) 
 {
 	RuleScore<Model> rule_score(*kenlm,cand->lm_state);  //TODO 计算预言模型增量
+	int nonterminal_rank = 1;
 	for (auto wid : cand->applied_rule.tgt_rule)
 	{
-		if (wid == wid_x1)
+		if (wid == nonterminal_wid)
 		{
-			rule_score.BeginNonTerminal((cand->child_x1)->lm_state);
-		}
-		else if (wid == wid_x2)
-		{
-			rule_score.NonTerminal((cand->child_x2)->lm_state);
+			if (nonterminal_rank == 1)
+			{
+				rule_score.NonTerminal((cand->child_x1)->lm_state);
+				nonterminal_rank += 1;
+			}
+			else
+			{
+				rule_score.NonTerminal((cand->child_x2)->lm_state);
+			}
 		}
 		else
 		{

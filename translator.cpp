@@ -191,8 +191,11 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 {
 	Candpq candpq_merge;			//优先级队列,用来临时存储通过合并得到的候选
 
-	//TODO 生成能与当前跨度对应的字符串匹配的所有pattern，一一拿到规则表中匹配，找出能用的规则
-	vector<Rule> possible_rules;
+	//生成能与当前跨度对应的字符串匹配的所有pattern，一一拿到规则表中匹配，找出能用的规则
+	vector<Pattern> possible_patterns;
+	get_patterns_with_one_terminal(beg,span,possible_patterns);
+	get_patterns_with_two_terminals(beg,span,possible_patterns);
+
 	vector<Rule> applicable_rules;
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : applicable_rules)
@@ -234,6 +237,68 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 }
 
 /**************************************************************************************
+ 1. 函数功能: 获取当前跨度能匹配的所有包含一个非终结符的pattern
+ 2. 入口参数: 当前跨度的起始位置和长度
+ 3. 出口参数: 能匹配的pattern
+ 4. 算法简介: 按照非终结符的起始位置和长度遍历所有可能的pattern
+************************************************************************************* */
+void SentenceTranslator::get_patterns_with_one_terminal(const size_t beg,const size_t span,vector<Pattern> &possible_patterns)
+{
+	if (span == 0)                                          //当前span只包含一个单词
+		return;
+	for (int nt_beg=beg;nt_beg<beg+span+1;nt_beg++)
+	{
+		for (int nt_span=0;nt_span<beg+span+1-nt_beg && nt_span<span;nt_span++)
+		{
+			vector<int> src_ids;
+			src_ids.insert(src_ids.end(),src_wids.begin()+beg,src_wids.begin()+nt_beg);
+			src_ids.push_back(src_vocab->get_id("[X][X]"));
+			src_ids.insert(src_ids.end(),src_wids.begin()+nt_beg+nt_span+1,src_wids.begin()+beg+span+1);
+			Pattern pattern;
+			pattern.src_ids = src_ids;
+			pattern.span_src_x1 = make_pair(nt_beg,nt_span);
+			pattern.span_src_x2 = make_pair(-1,-1);
+			possible_patterns.push_back(pattern);
+		}
+	}
+}
+
+/**************************************************************************************
+ 1. 函数功能: 获取当前跨度能匹配的所有包含两个非终结符的pattern
+ 2. 入口参数: 当前跨度的起始位置和长度
+ 3. 出口参数: 能匹配的pattern
+ 4. 算法简介: 按照非终结符的起始位置和长度遍历所有可能的pattern
+************************************************************************************* */
+void SentenceTranslator::get_patterns_with_two_terminals(const size_t beg,const size_t span,vector<Pattern> &possible_patterns)
+{
+	if (span <= 1)                                          //当前span包含不到三个单词
+		return;
+	for (int nt1_beg=beg;nt1_beg<beg+span;nt1_beg++)
+	{
+		for (int nt1_span=0;nt1_span<beg+span-nt1_beg;nt1_span++)
+		{
+			for (int nt2_beg=nt1_beg+nt1_span+2;nt2_beg<beg+span+1;nt2_beg++)
+			{
+				for (int nt2_span=0;nt2_span<beg+span+1-nt2_beg;nt2_span++)
+				{
+					vector<int> src_ids;
+					src_ids.insert(src_ids.end(),src_wids.begin()+beg,src_wids.begin()+beg+nt1_beg);
+					src_ids.push_back(src_vocab->get_id("[X][X]"));
+					src_ids.insert(src_ids.end(),src_wids.begin()+nt1_beg+nt1_span+1,src_wids.begin()+nt2_beg);
+					src_ids.push_back(src_vocab->get_id("[X][X]"));
+					src_ids.insert(src_ids.end(),src_wids.begin()+nt2_beg+nt2_span+1,src_wids.begin()+beg+span+1);
+					Pattern pattern;
+					pattern.src_ids = src_ids;
+					pattern.span_src_x1 = make_pair(nt1_beg,nt1_span);
+					pattern.span_src_x2 = make_pair(nt2_beg,nt2_span);
+					possible_patterns.push_back(pattern);
+				}
+			}
+		}
+	}
+}
+
+/**************************************************************************************
  1. 函数功能: 合并两个子候选并将生成的候选加入candpq_merge中
  2. 入口参数: 两个子候选,两个子候选的排名
  3. 出口参数: 更新后的candpq_merge
@@ -253,15 +318,20 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		cand->rank_x2 = rank_x2;
 		cand->child_x1 = cand_x1;
 		cand->child_x2 = cand_x2;
+		int nonterminal_rank = 1;
 		for (auto tgt_wid : rule.tgt_rule)
 		{
-			if (tgt_wid == tgt_vocab->get_id("[X1]"))
+			if (tgt_wid == tgt_vocab->get_id("[X][X]"))
 			{
-				cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
-			}
-			else if (tgt_wid == tgt_vocab->get_id("[X2]"))
-			{
-				cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
+				if (nonterminal_rank == 1)
+				{
+					cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
+					nonterminal_rank += 1;
+				}
+				else
+				{
+					cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
+				}
 			}
 			else
 			{
@@ -291,7 +361,7 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		cand->child_x2 = NULL;
 		for (auto tgt_wid : rule.tgt_rule)
 		{
-			if (tgt_wid == tgt_vocab->get_id("[X1]"))
+			if (tgt_wid == tgt_vocab->get_id("[X][X]"))
 			{
 				cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
 			}
