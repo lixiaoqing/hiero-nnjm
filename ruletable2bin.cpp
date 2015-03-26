@@ -1,7 +1,7 @@
 #include "myutils.h"
 const int LEN = 4096;
 
-void phrase2bin(string phrase_filename,string mode)
+void ruletable2bin(string rule_filename)
 {
 	unordered_map <string,int> ch_vocab;
 	unordered_map <string,int> en_vocab;
@@ -9,17 +9,14 @@ void phrase2bin(string phrase_filename,string mode)
 	vector<string> en_vocab_vec;
 	int ch_word_id = 0;
 	int en_word_id = 0;
-	gzFile gzfp = gzopen(phrase_filename.c_str(),"r");
+	gzFile gzfp = gzopen(rule_filename.c_str(),"r");
 	if (!gzfp)
 	{
-		cout<<"fail to open "<<phrase_filename<<endl;
+		cout<<"fail to open "<<rule_filename<<endl;
 		return;
 	}
 	ofstream fout;
-	if (mode == "1")
-		fout.open("prob.bin-with-alignment",ios::binary);
-	else
-		fout.open("prob.bin-without-alignment",ios::binary);
+	fout.open("prob.bin",ios::binary);
 	if (!fout.is_open())
 	{
 		cout<<"fail open model file to write!\n";
@@ -38,6 +35,7 @@ void phrase2bin(string phrase_filename,string mode)
 		}
 		vector <string> ch_word_vec;
 		Split(ch_word_vec,elements[0]);
+		ch_word_vec.pop_back();
 		vector <int> ch_id_vec;
 		for (const auto &ch_word : ch_word_vec)
 		{
@@ -55,11 +53,20 @@ void phrase2bin(string phrase_filename,string mode)
 			}
 		}
 
+		vector<int> nonterminal_idx_en;
+		int idx_en = -1;
+		short int rule_type = 0;                     //规则类型，0和1表示规则包含0个或1个非终结符，2表示规则包含2个正序非终结符，3表示规则包含2个逆序非终结符
 		vector <string> en_word_vec;
 		Split(en_word_vec,elements[1]);
+		en_word_vec.pop_back();
 		vector <int> en_id_vec;
 		for (const auto &en_word : en_word_vec)
 		{
+			idx_en += 1;
+			if (en_word == "[X][X]")
+			{
+				nonterminal_idx_en.push_back(idx_en);
+			}
 			auto it = en_vocab.find(en_word);
 			if (it != en_vocab.end())
 			{
@@ -73,6 +80,10 @@ void phrase2bin(string phrase_filename,string mode)
 				en_word_id++;
 			}
 		}
+		if (nonterminal_idx_en.size() == 1)
+		{
+			rule_type == 1;
+		}
 
 		vector <string> prob_str_vec;
 		vector <double> prob_vec;
@@ -82,33 +93,36 @@ void phrase2bin(string phrase_filename,string mode)
 			prob_vec.push_back(stod(prob_str));
 		}
 
-		vector <string> alignments;
-		vector <int> alignment_vec;
-		sep = "-";
-		if (mode == "1")
+		if (nonterminal_idx_en.size() == 2)
 		{
+			vector <string> alignments;
+			sep = "-";
 			Split(alignments,elements[3]);
 			for (auto &align_str : alignments)
 			{
 				vector <string> pos_pair;
 				Split(pos_pair,align_str,sep);
-				alignment_vec.push_back(stoi(pos_pair[0]));
-				alignment_vec.push_back(stoi(pos_pair[1]));
+				int idx_en = stoi(pos_pair[1]);
+				if (idx_en == nonterminal_idx_en[0])
+				{
+					rule_type = 2;
+					break;
+				}
+				else if (idx_en == nonterminal_idx_en[1])
+				{
+					rule_type = 3;
+					break;
+				}
 			}
 		}
-		short int ch_phrase_len = ch_id_vec.size();
-		short int en_phrase_len = en_id_vec.size();
-		short int alignment_vec_len = alignment_vec.size();
-		fout.write((char*)&ch_phrase_len,sizeof(short int));
-		fout.write((char*)&ch_id_vec[0],sizeof(int)*ch_phrase_len);
-		fout.write((char*)&en_phrase_len,sizeof(short int));
-		fout.write((char*)&en_id_vec[0],sizeof(int)*en_phrase_len);
+		short int ch_rule_len = ch_id_vec.size();
+		short int en_rule_len = en_id_vec.size();
+		fout.write((char*)&ch_rule_len,sizeof(short int));
+		fout.write((char*)&ch_id_vec[0],sizeof(int)*ch_rule_len);
+		fout.write((char*)&en_rule_len,sizeof(short int));
+		fout.write((char*)&en_id_vec[0],sizeof(int)*en_rule_len);
 		fout.write((char*)&prob_vec[0],sizeof(double)*prob_vec.size());
-		if (mode == "1")
-		{
-			fout.write((char*)&alignment_vec_len,sizeof(short int));
-			fout.write((char*)&alignment_vec[0],sizeof(int)*alignment_vec.size());
-		}
+		fout.write((char*)&rule_type,sizeof(short int));
 	}
 	gzclose(gzfp);
 	fout.close();
@@ -142,11 +156,10 @@ int main(int argc,char* argv[])
 {
     if(argc == 1)
     {
-		cout<<"usage: ./phrase2bin phrase.gz mode\nconvert alignment if mode==1, don't convert if mode==0\n";
+		cout<<"usage: ./ruletable2bin ruletable.gz\n";
 		return 0;
     }
-    string phrase_filename(argv[1]);
-	string mode(argv[2]);
-    phrase2bin(phrase_filename,mode);
+    string rule_filename(argv[1]);
+    ruletable2bin(rule_filename);
 	return 0;
 }

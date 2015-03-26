@@ -48,6 +48,9 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 			tgt_rule.score += tgt_rule.probs[i]*weight.trans[i];
 		}
 
+		short int rule_type;
+		fin.read((char*)&rule_type,sizeof(short int));
+		tgt_rule.rule_type = rule_type;
 		add_rule_to_trie(src_wids,tgt_rule);
 	}
 	fin.close();
