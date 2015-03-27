@@ -9,6 +9,8 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
 	para = i_para;
 	feature_weight = i_weight;
 
+	src_nt_id = src_vocab->get_id("[X][X]");
+	tgt_nt_id = tgt_vocab->get_id("[X][X]");
 	stringstream ss(input_sen);
 	string word;
 	while(ss>>word)
@@ -189,6 +191,7 @@ string SentenceTranslator::translate_sentence()
 ************************************************************************************* */
 void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t span)
 {
+	//cout<<"kbest for span "<<beg<<'-'<<beg+span<<endl;    //4debug
 	Candpq candpq_merge;			//优先级队列,用来临时存储通过合并得到的候选
 
 	//生成能与当前跨度对应的字符串匹配的所有pattern
@@ -196,15 +199,16 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	get_patterns_with_one_terminal(beg,span,possible_patterns);
 	get_patterns_with_two_terminals(beg,span,possible_patterns);
 	get_patterns_for_glue_rule(beg,span,possible_patterns);
+	//cout<<"get patterns over\n";  //4debug
 
 	//将生成的pattern一一拿到规则表中匹配，找出能用的规则
 	vector<Rule> applicable_rules;
 	for (auto &pattern : possible_patterns)
 	{
 		vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(pattern.src_ids,0);
-		if (matched_rules_for_prefixes.size() == pattern.src_ids.size() || matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
+		if (matched_rules_for_prefixes.size() == pattern.src_ids.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 		{
-			for (const auto &tgt_rule : *matched_rules_for_prefixes.at(span))
+			for (const auto &tgt_rule : *matched_rules_for_prefixes.back())
 			{
 				Rule rule;
 				rule.src_ids = pattern.src_ids;
@@ -219,14 +223,18 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 					rule.span_x1 = pattern.span_src_x1;
 					rule.span_x2 = pattern.span_src_x2;
 				}
+				rule.probs = tgt_rule.probs;
+				rule.score = tgt_rule.score;
 				applicable_rules.push_back(rule);
+				//cout<<"find one applicable rule\n";    //4debug
 			}
 		}
 	}
+	//cout<<"rule matching over\n";    //4debug
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : applicable_rules)
 	{
-		generate_cand_with_rule_and_add_to_pq(rule,1,1,candpq_merge);
+		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge);
 	}
 
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入candbeam_matrix中,并将该候选的邻居加入candpq_merge中
@@ -278,7 +286,7 @@ void SentenceTranslator::get_patterns_with_one_terminal(const size_t beg,const s
 		{
 			vector<int> src_ids;
 			src_ids.insert(src_ids.end(),src_wids.begin()+beg,src_wids.begin()+nt_beg);
-			src_ids.push_back(src_vocab->get_id("[X][X]"));
+			src_ids.push_back(src_nt_id);
 			src_ids.insert(src_ids.end(),src_wids.begin()+nt_beg+nt_span+1,src_wids.begin()+beg+span+1);
 			Pattern pattern;
 			pattern.src_ids = src_ids;
@@ -309,9 +317,9 @@ void SentenceTranslator::get_patterns_with_two_terminals(const size_t beg,const 
 				{
 					vector<int> src_ids;
 					src_ids.insert(src_ids.end(),src_wids.begin()+beg,src_wids.begin()+beg+nt1_beg);
-					src_ids.push_back(src_vocab->get_id("[X][X]"));
+					src_ids.push_back(src_nt_id);
 					src_ids.insert(src_ids.end(),src_wids.begin()+nt1_beg+nt1_span+1,src_wids.begin()+nt2_beg);
-					src_ids.push_back(src_vocab->get_id("[X][X]"));
+					src_ids.push_back(src_nt_id);
 					src_ids.insert(src_ids.end(),src_wids.begin()+nt2_beg+nt2_span+1,src_wids.begin()+beg+span+1);
 					Pattern pattern;
 					pattern.src_ids = src_ids;
@@ -337,8 +345,8 @@ void SentenceTranslator::get_patterns_for_glue_rule(const size_t beg,const size_
 	for (int nt1_span=0;nt1_span<span;nt1_span++)
 	{
 		vector<int> src_ids;
-		src_ids.push_back(src_vocab->get_id("[X][X]"));
-		src_ids.push_back(src_vocab->get_id("[X][X]"));
+		src_ids.push_back(src_nt_id);
+		src_ids.push_back(src_nt_id);
 		Pattern pattern;
 		pattern.src_ids = src_ids;
 		pattern.span_src_x1 = make_pair(0,nt1_span);
@@ -355,31 +363,44 @@ void SentenceTranslator::get_patterns_for_glue_rule(const size_t beg,const size_
 ************************************************************************************* */
 void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &candpq_merge)
 {
-	if (rule.span_x2.first != -1)                                                                     //该规则有两个非终结符
+	if (rule.span_x2.first != -1)                                                                      //该规则有两个非终结符
 	{
+		//cout<<"generate cand with two terminals\n";    //4debug
+		if (candbeam_matrix.at(rule.span_x1.first).at(rule.span_x1.second).size() <= rank_x1 ||
+			candbeam_matrix.at(rule.span_x2.first).at(rule.span_x2.second).size() <= rank_x2)          //子候选不够用
+			return;
 		Cand *cand_x1 = candbeam_matrix.at(rule.span_x1.first).at(rule.span_x1.second).at(rank_x1);
 		Cand *cand_x2 = candbeam_matrix.at(rule.span_x2.first).at(rule.span_x2.second).at(rank_x2);
+		//cout<<"sub cands found\n";    //4debug
 		Cand* cand = new Cand;
 		cand->applied_rule = rule;
-		cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_ids.size() - 2;
 		cand->rule_num = cand_x1->rule_num + cand_x2->rule_num + 1;
+		if (rule.src_ids.size() == 2 && rule.src_ids[0] == src_nt_id &&  rule.src_ids[1] == src_nt_id)  //glue规则
+		{
+			cand->glue_num = cand_x1->glue_num + cand_x2->glue_num + 1;
+		}
+		else
+		{
+			cand->glue_num = cand_x1->glue_num + cand_x2->glue_num;
+		}
 		cand->rank_x1 = rank_x1;
 		cand->rank_x2 = rank_x2;
 		cand->child_x1 = cand_x1;
 		cand->child_x2 = cand_x2;
-		int nonterminal_rank = 1;
+		cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_ids.size() - 2;
+		int nt_idx = 1; 							//表示第几个非终结符
 		for (auto tgt_wid : rule.tgt_ids)
 		{
-			if (tgt_wid == tgt_vocab->get_id("[X][X]"))
+			if (tgt_wid == tgt_nt_id)
 			{
-				if (nonterminal_rank == 1)
+				if (nt_idx == 1)
 				{
 					cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
-					nonterminal_rank += 1;
+					nt_idx += 1;
 				}
 				else
 				{
-					cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
+					cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x2->tgt_wids.begin(),cand_x2->tgt_wids.end());
 				}
 			}
 			else
@@ -389,28 +410,32 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		}
 		for (size_t i=0;i<PROB_NUM;i++)
 		{
-			cand->trans_probs.push_back(cand_x1->trans_probs.at(i)+cand_x2->trans_probs.at(i));    //TODO 还有规则的翻译概率
+			cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + cand_x2->trans_probs.at(i) + rule.probs.at(i));
 		}
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;
-		cand->score = cand_x1->score + cand_x2->score 
-			+ feature_weight.lm*increased_lm_prob;        //TODO 考虑每个特征的打分
+		cand->score = cand_x1->score + cand_x2->score + rule.score + feature_weight.lm*increased_lm_prob;
 		candpq_merge.push(cand);
+		//cout<<"generate cand with two terminals over\n";    //4debug
 	}
-	else
+	else 																							   //该规则只有一个非终结符
 	{
+		//cout<<"generate cand with one terminals\n";   //4debug
+		if (candbeam_matrix.at(rule.span_x1.first).at(rule.span_x1.second).size() <= rank_x1)
+			return;
 		Cand *cand_x1 = candbeam_matrix.at(rule.span_x1.first).at(rule.span_x1.second).at(rank_x1);
 		Cand* cand = new Cand;
 		cand->applied_rule = rule;
-		cand->tgt_word_num = cand_x1->tgt_word_num + rule.tgt_ids.size() - 1;
 		cand->rule_num = cand_x1->rule_num + 1;
+		cand->glue_num = cand_x1->glue_num;
 		cand->rank_x1 = rank_x1;
 		cand->rank_x2 = -1;
 		cand->child_x1 = cand_x1;
 		cand->child_x2 = NULL;
+		cand->tgt_word_num = cand_x1->tgt_word_num + rule.tgt_ids.size() - 1;
 		for (auto tgt_wid : rule.tgt_ids)
 		{
-			if (tgt_wid == tgt_vocab->get_id("[X][X]"))
+			if (tgt_wid == tgt_nt_id)
 			{
 				cand->tgt_wids.insert(cand->tgt_wids.end(),cand_x1->tgt_wids.begin(),cand_x1->tgt_wids.end());
 			}
@@ -421,11 +446,11 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		}
 		for (size_t i=0;i<PROB_NUM;i++)
 		{
-			cand->trans_probs.push_back(cand_x1->trans_probs.at(i));    //还有规则的翻译概率
+			cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + rule.probs.at(i));
 		}
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + increased_lm_prob;
-		cand->score = cand_x1->score + feature_weight.lm*increased_lm_prob;        //TODO 考虑每个特征的打分
+		cand->score = cand_x1->score + rule.score + feature_weight.lm*increased_lm_prob;
 		candpq_merge.push(cand);
 	}
 }
@@ -443,25 +468,16 @@ void SentenceTranslator::add_neighbours_to_pq(Cand* cur_cand, Candpq &candpq_mer
 	{
 		int rank_x1 = cur_cand->rank_x1 + 1;
 		int rank_x2 = cur_cand->rank_x2;
-		if (candbeam_matrix.at(cur_cand->applied_rule.span_x1.first).at(cur_cand->applied_rule.span_x1.second).size() >= rank_x1)
-		{
-			generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
-		}
+		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
 
 		rank_x1 = cur_cand->rank_x1;
 		rank_x2 = cur_cand->rank_x2 + 1;
-		if (candbeam_matrix.at(cur_cand->applied_rule.span_x2.first).at(cur_cand->applied_rule.span_x2.second).size() >= rank_x2)
-		{
-			generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
-		}
+		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
 	}
-	else
+	else 																		//如果生成当前候选的规则包括一个非终结符
 	{
 		int rank_x1 = cur_cand->rank_x1 + 1;
 		int rank_x2 = cur_cand->rank_x2;
-		if (candbeam_matrix.at(cur_cand->applied_rule.span_x1.first).at(cur_cand->applied_rule.span_x1.second).size() >= rank_x1)
-		{
-			generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
-		}
+		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
 	}
 }

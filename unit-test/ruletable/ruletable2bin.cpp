@@ -123,6 +123,18 @@ void ruletable2bin(string rule_filename)
 		fout.write((char*)&en_id_vec[0],sizeof(int)*en_rule_len);
 		fout.write((char*)&prob_vec[0],sizeof(double)*prob_vec.size());
 		fout.write((char*)&rule_type,sizeof(short int));
+		/*
+		cout<<ch_rule_len<<' ';
+		for (auto e: ch_id_vec)
+			cout<<e<<' ';
+		cout<<"||| "<<en_rule_len<<' ';
+		for (auto e: en_id_vec)
+			cout<<e<<' ';
+		cout<<"||| ";
+		for (auto e: prob_vec)
+			cout<<e<<' ';
+		cout<<"||| "<<rule_type<<endl;
+		*/
 	}
 	short int ch_rule_len = 2; 											//写入glue规则
 	vector<int> ch_id_vec = {ch_vocab["[X][X]"],ch_vocab["[X][X]"]};

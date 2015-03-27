@@ -51,4 +51,6 @@ class SentenceTranslator
 													    //candbeam_matrix[i][j]存储起始位置为i, 跨度为j的候选列表
 		vector<int> src_wids;
 		size_t src_sen_len;
+		int src_nt_id;                                  //源端非终结符的id
+		int tgt_nt_id; 									//目标端非终结符的id
 };

@@ -18,7 +18,10 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 		short int tgt_rule_len=0;
 		fin.read((char*)&tgt_rule_len,sizeof(short int));
 		if (tgt_rule_len > RULE_LEN_MAX)
-			continue;
+		{
+			cout<<"error, rule length exceed, bye\n";
+			exit(EXIT_FAILURE);
+		}
 		TgtRule tgt_rule;
 		tgt_rule.word_num = tgt_rule_len;
 		tgt_rule.wids.resize(tgt_rule_len);

@@ -10,6 +10,8 @@ struct Rule
 	vector<int> tgt_ids;      //规则目标端符号（包括终结符和非终结符）id序列
 	pair<int,int> span_x1;    //用来表示规则目标端第一个非终结符在源端的起始位置和跨度长度
 	pair<int,int> span_x2;    //同上
+	vector<double> probs; 	  //规则的翻译概率和词汇权重
+	double score; 			  //规则的总打分
 };
 
 //存储翻译候选
