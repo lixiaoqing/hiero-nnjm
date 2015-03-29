@@ -1,17 +1,16 @@
 #ifndef DATASTRUCT_H
 #define DATASTRUCT_H
 #include "stdafx.h"
+#include "ruletable.h"
 #include "lm/left.hh"
 
 //生成候选所使用的规则信息
 struct Rule
 {
 	vector<int> src_ids;      //规则源端符号（包括终结符和非终结符）id序列
-	vector<int> tgt_ids;      //规则目标端符号（包括终结符和非终结符）id序列
 	pair<int,int> span_x1;    //用来表示规则目标端第一个非终结符在源端的起始位置和跨度长度
 	pair<int,int> span_x2;    //同上
-	vector<double> probs; 	  //规则的翻译概率和词汇权重
-	double score; 			  //规则的总打分
+	TgtRule *tgt_rule;        //规则目标端
 };
 
 //存储翻译候选

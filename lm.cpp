@@ -40,7 +40,7 @@ double LanguageModel::cal_increased_lm_score(Cand* cand)
 {
 	RuleScore<Model> rule_score(*kenlm,cand->lm_state);
 	int nonterminal_rank = 1;
-	for (auto wid : cand->applied_rule.tgt_ids)
+	for (auto wid : cand->applied_rule.tgt_rule->wids)
 	{
 		if (wid == nonterminal_wid)
 		{

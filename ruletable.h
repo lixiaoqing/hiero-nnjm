@@ -1,10 +1,10 @@
 #include "stdafx.h"
-#include "cand.h"
+//#include "cand.h"
 
 struct TgtRule
 {
 	bool operator<(const TgtRule &rhs) const{return score<rhs.score;};
-	short int rule_type; 						// 规则类型，0和1表示包含0或1个非终结符，2表示包含两个正序非终结符，3表示包含两个逆序非终结符
+	short int rule_type; 						// 规则类型，0和1表示包含0或1个非终结符，2和3表示正序和逆序hiero规则，4表示glue规则
 	int word_num;                               // 规则目标端的终结符（单词）数
 	vector<int> wids;                           // 规则目标端的符号（包括终结符和非终结符）id序列
 	double score;                               // 规则打分, 即翻译概率与词汇权重的加权

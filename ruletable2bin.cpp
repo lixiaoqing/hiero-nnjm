@@ -55,7 +55,7 @@ void ruletable2bin(string rule_filename)
 
 		vector<int> nonterminal_idx_en;
 		int idx_en = -1;
-		short int rule_type = 0;                     //规则类型，0和1表示规则包含0个或1个非终结符，2表示规则包含2个正序非终结符，3表示规则包含2个逆序非终结符
+		short int rule_type = 0;                     //规则类型，0和1表示包含0或1个非终结符，2和3表示正序和逆序hiero规则，4表示glue规则
 		vector <string> en_word_vec;
 		Split(en_word_vec,elements[1]);
 		en_word_vec.pop_back();
@@ -129,7 +129,7 @@ void ruletable2bin(string rule_filename)
 	short int en_rule_len = 2;
 	vector<int> en_id_vec = {en_vocab["[X][X]"],en_vocab["[X][X]"]};
 	vector<double> prob_vec = {2.718,2.718,2.718,2.718};
-	short int rule_type = 2;
+	short int rule_type = 4;
 	fout.write((char*)&ch_rule_len,sizeof(short int));
 	fout.write((char*)&ch_id_vec[0],sizeof(int)*ch_rule_len);
 	fout.write((char*)&en_rule_len,sizeof(short int));

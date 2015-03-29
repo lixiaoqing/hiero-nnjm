@@ -32,6 +32,7 @@ using namespace std;
 const size_t LM_ORDER = 5;
 const size_t PROB_NUM=4;
 const size_t RULE_LEN_MAX=10;
+const size_t SPAN_LEN_MAX=20;
 const double LogP_PseudoZero = -99.0;
 const double LogP_One = 0.0;
 
