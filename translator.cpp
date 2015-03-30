@@ -27,8 +27,11 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
 		span2rules.at(beg).resize(src_sen_len-beg);
 	}
 
+	//cout<<"before fill span2cands with phrase rules\n";                                     //4debug
 	fill_span2cands_with_phrase_rules();
+	//cout<<"fill span2cands with phrase rules over\n";                                     //4debug
 	get_applicable_rules_for_each_span();
+	//cout<<"get applicable rules for each span over\n";                                     //4debug
 }
 
 SentenceTranslator::~SentenceTranslator()
@@ -56,37 +59,49 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 	for (size_t beg=0;beg<src_sen_len;beg++)
 	{
 		vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(src_wids,beg);
+		//cout<<"find matched phrase rules over\n";
 		for (size_t span=0;span<matched_rules_for_prefixes.size();span++)	//span=0对应跨度包含1个词的情况
 		{
 			if (matched_rules_for_prefixes.at(span) == NULL)
 			{
+				//cout<<"phrase rule not found at "<<beg<<' '<<span<<endl;  //4debug
 				if (span == 0)
 				{
 					Cand* cand = new Cand;
+					//cout<<"init oov cand over\n";     //4debug
 					cand->tgt_wids.push_back(tgt_vocab->get_id("NULL"));
 					cand->trans_probs.resize(PROB_NUM,LogP_PseudoZero);
 					for (size_t i=0;i<PROB_NUM;i++)
 					{
 						cand->score += feature_weight.trans.at(i)*cand->trans_probs.at(i);
 					}
+					cand->applied_rule.src_ids.push_back(src_wids.at(beg));
+					//cout<<"before cal lm score\n";    //4debug
 					cand->lm_prob = lm_model->cal_increased_lm_score(cand);
+					//cout<<"after cal lm score\n";    //4debug
 					cand->score += feature_weight.rule_num*cand->rule_num 
 						       + feature_weight.len*cand->tgt_word_num + feature_weight.lm*cand->lm_prob;
 					span2cands.at(beg).at(span).add(cand);
+					//cout<<"add oov cand at "<<beg<<' '<<span<<endl;  //4debug
 				}
 				continue;
 			}
-			for (const auto &tgt_rule : *matched_rules_for_prefixes.at(span))
+			for (auto &tgt_rule : *matched_rules_for_prefixes.at(span))
 			{
+				//cout<<"phrase rule found at "<<beg<<' '<<span<<endl;  //4debug
 				Cand* cand = new Cand;
 				cand->tgt_word_num = tgt_rule.word_num;
 				cand->tgt_wids = tgt_rule.wids;
 				cand->trans_probs = tgt_rule.probs;
 				cand->score = tgt_rule.score;
+				vector<int> src_ids(src_wids.begin()+beg,src_wids.begin()+beg+span+1);
+				cand->applied_rule.src_ids = src_ids;
+				cand->applied_rule.tgt_rule = &tgt_rule;
 				cand->lm_prob = lm_model->cal_increased_lm_score(cand);
 				cand->score += feature_weight.rule_num*cand->rule_num 
 					       + feature_weight.len*cand->tgt_word_num + feature_weight.lm*cand->lm_prob;
 				span2cands.at(beg).at(span).add(cand);
+				//cout<<"add phrase cand at "<<beg<<' '<<span<<endl;  //4debug
 			}
 		}
 	}
@@ -103,10 +118,14 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 void SentenceTranslator::get_applicable_rules_for_each_span()
 {
 	vector<Pattern> possible_patterns;
-	get_patterns_with_one_terminal_seq(possible_patterns);
-	get_patterns_with_two_terminal_seq(possible_patterns);
-	get_patterns_with_three_terminal_seq(possible_patterns);
-	get_patterns_for_glue_rule(possible_patterns);
+	get_patterns_with_one_terminal_seq(possible_patterns);            //形如AX,XA和XAX的pattern
+	//cout<<"get patterns with one terminal sequence over\n";    //4debug
+	get_patterns_with_two_terminal_seq(possible_patterns);            //形如AXB,AXBX和XAXB的pattern
+	//cout<<"get patterns with two terminal sequence over\n";    //4debug
+	get_patterns_with_three_terminal_seq(possible_patterns);          //形如AXBXC的pattern
+	//cout<<"get patterns with three terminal sequence over\n";    //4debug
+	get_patterns_for_glue_rule(possible_patterns);                    //起始位置为句首，形如X1X2的pattern
+	//cout<<"get patterns for glue rule over\n";    //4debug
 
 	for (auto &pattern : possible_patterns)
 	{
@@ -227,6 +246,7 @@ string SentenceTranslator::translate_sentence()
 		{
 			generate_kbest_for_span(beg,span);
 			span2cands.at(beg).at(span).sort();
+			//cout<<"cand num at span "<<beg<<'-'<<span<<' '<<span2cands.at(beg).at(span).size()<<endl;    //4debug
 		}
 	}
 	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,true);
@@ -243,38 +263,6 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	//cout<<"kbest for span "<<beg<<'-'<<beg+span<<endl;    //4debug
 	Candpq candpq_merge;			//优先级队列,用来临时存储通过合并得到的候选
 
-	/*
-	//将生成的pattern一一拿到规则表中匹配，找出能用的规则
-	vector<Rule> applicable_rules;
-	for (auto &pattern : possible_patterns)
-	{
-		vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(pattern.src_ids,0);
-		if (matched_rules_for_prefixes.size() == pattern.src_ids.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
-		{
-			for (const auto &tgt_rule : *matched_rules_for_prefixes.back())
-			{
-				Rule rule;
-				rule.src_ids = pattern.src_ids;
-				rule.tgt_ids = tgt_rule.wids;
-				if (tgt_rule.rule_type == 3)
-				{
-					rule.span_x1 = pattern.span_src_x2;
-					rule.span_x2 = pattern.span_src_x1;
-				}
-				else
-				{
-					rule.span_x1 = pattern.span_src_x1;
-					rule.span_x2 = pattern.span_src_x2;
-				}
-				rule.probs = tgt_rule.probs;
-				rule.score = tgt_rule.score;
-				applicable_rules.push_back(rule);
-				//cout<<"find one applicable rule\n";    //4debug
-			}
-		}
-	}
-	//cout<<"rule matching over\n";    //4debug
-	*/
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : span2rules.at(beg).at(span))
 	{
@@ -502,7 +490,7 @@ void SentenceTranslator::get_patterns_for_glue_rule(vector<Pattern> &possible_pa
 	vector<int> src_ids = {src_nt_id,src_nt_id};
 	Pattern pattern;
 	pattern.src_ids = src_ids;
-	for (int span=1;span<SPAN_LEN_MAX && span<src_sen_len;span++)
+	for (int span=1;span<src_sen_len;span++)                      //glue pattern的跨度不受规则最大跨度RULE_LEN_MAX的限制，可以延伸到句尾
 	{
 		for (int nt1_span=0;nt1_span<span;nt1_span++)
 		{

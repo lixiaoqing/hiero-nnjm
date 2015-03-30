@@ -30,7 +30,7 @@ struct Cand
 	double lm_prob;
 
 	//合并信息,记录通过规则生成当前候选时的相关信息，注意可能只有一个子候选
-	Rule applied_rule;          //生成当前候选所使用的规则源端
+	Rule applied_rule;          //生成当前候选所使用的规则
 	int rank_x1;				//记录用的x1中的第几个候选，x1为目标端第一个非终结符
 	int rank_x2;				//记录用的x2中的第几个候选
 	Cand* child_x1; 			//指向改写x1的候选的指针
@@ -50,6 +50,11 @@ struct Cand
 		score = 0.0;
 		trans_probs.clear();
 		lm_prob = 0.0;
+
+		applied_rule.src_ids.clear();
+		applied_rule.span_x1 = make_pair(-1,-1);
+		applied_rule.span_x2 = make_pair(-1,-1);
+		applied_rule.tgt_rule = NULL;
 
 		rank_x1 = 0;
 		rank_x2 = 0;
