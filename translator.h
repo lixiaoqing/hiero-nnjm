@@ -40,6 +40,7 @@ class SentenceTranslator
 		void generate_kbest_for_span(const size_t beg,const size_t span);
 		void get_patterns_with_one_terminal_seq(vector<Pattern> &possible_patterns);
 		void get_patterns_with_two_terminal_seq(vector<Pattern> &possible_patterns);
+		void get_patterns_with_three_terminal_seq(vector<Pattern> &possible_patterns);
 		void get_patterns_for_glue_rule(vector<Pattern> &possible_patterns);
 		void generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &new_cands_by_mergence);
 		void add_neighbours_to_pq(Cand *cur_cand, Candpq &new_cands_by_mergence);
