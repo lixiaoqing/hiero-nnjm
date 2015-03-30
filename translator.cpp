@@ -523,13 +523,14 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		//cout<<"sub cands found\n";    //4debug
 		Cand* cand = new Cand;
 		cand->applied_rule = rule;
-		cand->rule_num = cand_x1->rule_num + cand_x2->rule_num + 1;
 		if (rule.tgt_rule->rule_type == 4)  //glue规则
 		{
+			cand->rule_num = cand_x1->rule_num + cand_x2->rule_num;
 			cand->glue_num = cand_x1->glue_num + cand_x2->glue_num + 1;
 		}
 		else
 		{
+			cand->rule_num = cand_x1->rule_num + cand_x2->rule_num + 1;
 			cand->glue_num = cand_x1->glue_num + cand_x2->glue_num;
 		}
 		cand->rank_x1 = rank_x1;
@@ -563,7 +564,12 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		}
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;
-		cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob;
+		cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
+					  + feature_weight.rule_num*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 2);
+		if (rule.tgt_rule->rule_type == 4)  //glue规则
+		{
+			cand->score += feature_weight.glue*1;
+		}
 		candpq_merge.push(cand);
 		//cout<<"generate cand with two terminals over\n";    //4debug
 	}
@@ -600,6 +606,8 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + increased_lm_prob;
 		cand->score = cand_x1->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob;
+		cand->score = cand_x1->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
+					  + feature_weight.rule_num*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 1);
 		candpq_merge.push(cand);
 	}
 }
