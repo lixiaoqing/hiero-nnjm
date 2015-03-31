@@ -545,11 +545,15 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		}
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;
-		cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
-					  + feature_weight.rule_num*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 2);
 		if (rule.tgt_rule->rule_type == 4)  //glue规则
 		{
-			cand->score += feature_weight.glue*1;
+			cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
+					  + feature_weight.glue*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 2);
+		}
+		else
+		{
+			cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
+					  + feature_weight.rule_num*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 2);
 		}
 		candpq_merge.push(cand);
 	}
