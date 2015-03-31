@@ -414,7 +414,12 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		}
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;
-		cand->score = cand_x1->score + cand_x2->score + rule.score + feature_weight.lm*increased_lm_prob;
+		cand->score = cand_x1->score + cand_x2->score + rule.score + feature_weight.lm*increased_lm_prob
+					  + feature_weight.rule_num*1 + feature_weight.len*(rule.tgt_ids.size() - 2);
+		if (rule.src_ids.size() == 2 && rule.src_ids[0] == src_nt_id &&  rule.src_ids[1] == src_nt_id)  //glue规则
+		{
+			cand->score += feature_weight.glue*1;
+		}
 		candpq_merge.push(cand);
 		//cout<<"generate cand with two terminals over\n";    //4debug
 	}
@@ -451,6 +456,7 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
 		cand->lm_prob = cand_x1->lm_prob + increased_lm_prob;
 		cand->score = cand_x1->score + rule.score + feature_weight.lm*increased_lm_prob;
+					  + feature_weight.rule_num*1 + feature_weight.len*(rule.tgt_ids.size() - 1);
 		candpq_merge.push(cand);
 	}
 }
