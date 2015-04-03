@@ -421,7 +421,7 @@ void SentenceTranslator::get_patterns_with_two_terminal_seq(vector<Pattern> &pos
 }
 
 /**************************************************************************************
- 1. 函数功能: 获取当前句子能匹配的所有包含两个终结符序列的pattern
+ 1. 函数功能: 获取当前句子能匹配的所有包含三个终结符序列的pattern
  2. 入口参数: 无
  3. 出口参数: 能匹配的pattern
  4. 算法简介: 按照终结符序列的起始位置和长度遍历所有可能的pattern
@@ -430,13 +430,13 @@ void SentenceTranslator::get_patterns_with_three_terminal_seq(vector<Pattern> &p
 {
 	for (int ts_beg=0;ts_beg<src_sen_len;ts_beg++)
 	{
-		for (int ts_span=0;ts_span<src_sen_len-ts_beg && ts_span<SPAN_LEN_MAX;ts_span++)                    //此处的ts_span为三个非终结符序列从头到尾的总跨度
+		for (int ts_span=0;ts_span<src_sen_len-ts_beg && ts_span<SPAN_LEN_MAX;ts_span++)                    //此处的ts_span为三个终结符序列从头到尾的总跨度
 		{
 			for (int inner_nts_beg=ts_beg+1;inner_nts_beg<ts_beg+ts_span-1;inner_nts_beg++)
 			{
 				for (int inner_nts_span=0;inner_nts_span<ts_span-(inner_nts_beg-ts_beg);inner_nts_span++)   //此处的inner_nts_span为两个非终结符序列从头到尾的总跨度
 				{
-					for (int inner_ts_beg=inner_nts_beg+1;inner_ts_beg<inner_nts_beg+inner_nts_span-1;inner_ts_beg++)
+					for (int inner_ts_beg=inner_nts_beg+1;inner_ts_beg<inner_nts_beg+inner_nts_span;inner_ts_beg++)
 					{
 						for (int inner_ts_span=0;inner_ts_span<inner_nts_span-(inner_ts_beg-inner_nts_beg);inner_ts_span++)
 						{
