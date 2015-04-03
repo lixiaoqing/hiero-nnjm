@@ -6,4 +6,5 @@
    3.3 generate translation hypothesis according to the target side of each matched pattern       checked
 
 NEW
-generate possible patterns according to existing patterns with smaller span
+find hiero rules for each span before decoding                                                    checked
+check boundary index for each rule pattern

@@ -13,19 +13,6 @@ struct Models
 	LanguageModel *lm_model;
 };
 
-struct PatternSpan
-{
-	pair <int,int> span;                    //该pattern占据的span
-	pair <int,int> span_src_x1;             //该pattern第一个非终结符占据的span
-	pair <int,int> span_src_x2;             //该pattern第二个非终结符占据的span
-};
-
-struct Pattern
-{
-	vector<int> src_ids;                    //该pattern源端符号的id序列
-	vector<PatternSpan> pattern_spans;      //个pattern适用的所有span
-};
-
 class SentenceTranslator
 {
 	public:
@@ -36,12 +23,13 @@ class SentenceTranslator
 		vector<string> get_applied_rules(size_t sen_id);
 	private:
 		void fill_span2cands_with_phrase_rules();
-		void get_applicable_rules_for_each_span();
+		void fill_span2rules_with_hiero_rules();
+		void fill_span2rules_with_AX_XA_XAX_rule();
+		void fill_span2rules_with_AXB_AXBX_XAXB_rule();
+		void fill_span2rules_with_AXBXC_rule();
+		void fill_span2rules_with_glue_rule();
+		void fill_span2rules_with_matched_rules(vector<TgtRule> &matched_rules,vector<int> &src_ids,pair<int,int> span,pair<int,int> span_src_x1,pair<int,int> span_src_x2);
 		void generate_kbest_for_span(const size_t beg,const size_t span);
-		void get_patterns_with_one_terminal_seq(vector<Pattern> &possible_patterns);
-		void get_patterns_with_two_terminal_seq(vector<Pattern> &possible_patterns);
-		void get_patterns_with_three_terminal_seq(vector<Pattern> &possible_patterns);
-		void get_patterns_for_glue_rule(vector<Pattern> &possible_patterns);
 		void generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &new_cands_by_mergence);
 		void add_neighbours_to_pq(Cand *cur_cand, Candpq &new_cands_by_mergence);
 		void dump_rules(vector<string> &applied_rules, Cand *cand);
