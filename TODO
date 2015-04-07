@@ -8,3 +8,4 @@
 NEW
 find hiero rules for each span before decoding                                                    checked
 check boundary index for each rule pattern
+calculate log prob when converting rule table to bin
