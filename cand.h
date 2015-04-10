@@ -1,17 +1,16 @@
 #ifndef DATASTRUCT_H
 #define DATASTRUCT_H
 #include "stdafx.h"
+#include "ruletable.h"
 #include "lm/left.hh"
 
 //生成候选所使用的规则信息
 struct Rule
 {
 	vector<int> src_ids;      //规则源端符号（包括终结符和非终结符）id序列
-	vector<int> tgt_ids;      //规则目标端符号（包括终结符和非终结符）id序列
 	pair<int,int> span_x1;    //用来表示规则目标端第一个非终结符在源端的起始位置和跨度长度
 	pair<int,int> span_x2;    //同上
-	vector<double> probs; 	  //规则的翻译概率和词汇权重
-	double score; 			  //规则的总打分
+	TgtRule *tgt_rule;        //规则目标端
 };
 
 //存储翻译候选
@@ -31,7 +30,7 @@ struct Cand
 	double lm_prob;
 
 	//合并信息,记录通过规则生成当前候选时的相关信息，注意可能只有一个子候选
-	Rule applied_rule;          //生成当前候选所使用的规则源端
+	Rule applied_rule;          //生成当前候选所使用的规则
 	int rank_x1;				//记录用的x1中的第几个候选，x1为目标端第一个非终结符
 	int rank_x2;				//记录用的x2中的第几个候选
 	Cand* child_x1; 			//指向改写x1的候选的指针
@@ -51,6 +50,11 @@ struct Cand
 		score = 0.0;
 		trans_probs.clear();
 		lm_prob = 0.0;
+
+		applied_rule.src_ids.clear();
+		applied_rule.span_x1 = make_pair(-1,-1);
+		applied_rule.span_x2 = make_pair(-1,-1);
+		applied_rule.tgt_rule = NULL;
 
 		rank_x1 = 0;
 		rank_x2 = 0;

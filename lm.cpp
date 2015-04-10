@@ -39,25 +39,33 @@ lm::WordIndex LanguageModel::convert_to_kenlm_id(int wid)
 double LanguageModel::cal_increased_lm_score(Cand* cand) 
 {
 	RuleScore<Model> rule_score(*kenlm,cand->lm_state);
-	int nonterminal_rank = 1;
-	for (auto wid : cand->applied_rule.tgt_ids)
+	if (cand->applied_rule.tgt_rule == NULL)            //OOV候选
 	{
-		if (wid == nonterminal_wid)
+		const lm::WordIndex ken_lm_id = convert_to_kenlm_id(cand->tgt_wids.at(0));
+		rule_score.Terminal(ken_lm_id);
+	}
+	else
+	{
+		int nonterminal_rank = 1;
+		for (auto wid : cand->applied_rule.tgt_rule->wids)
 		{
-			if (nonterminal_rank == 1)
+			if (wid == nonterminal_wid)
 			{
-				rule_score.NonTerminal((cand->child_x1)->lm_state);
-				nonterminal_rank += 1;
+				if (nonterminal_rank == 1)
+				{
+					rule_score.NonTerminal((cand->child_x1)->lm_state);
+					nonterminal_rank += 1;
+				}
+				else
+				{
+					rule_score.NonTerminal((cand->child_x2)->lm_state);
+				}
 			}
 			else
 			{
-				rule_score.NonTerminal((cand->child_x2)->lm_state);
+				const lm::WordIndex ken_lm_id = convert_to_kenlm_id(wid);
+				rule_score.Terminal(ken_lm_id);
 			}
-		}
-		else
-		{
-			const lm::WordIndex ken_lm_id = convert_to_kenlm_id(wid);
-			rule_score.Terminal(ken_lm_id);
 		}
 	}
 	double increased_lm_score = rule_score.Finish();
