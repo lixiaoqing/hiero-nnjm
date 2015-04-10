@@ -11,6 +11,14 @@ struct Rule
 	pair<int,int> span_x1;    //用来表示规则目标端第一个非终结符在源端的起始位置和跨度长度
 	pair<int,int> span_x2;    //同上
 	TgtRule *tgt_rule;        //规则目标端
+	int tgt_rule_rank;		  //该目标端在源端相同的所有目标端中的排名
+	Rule ()
+	{
+		span_x1 = make_pair(-1,-1);
+		span_x2 = make_pair(-1,-1);
+		tgt_rule = NULL;
+		tgt_rule_rank = 0;
+	}
 };
 
 //存储翻译候选
@@ -50,11 +58,6 @@ struct Cand
 		score = 0.0;
 		trans_probs.clear();
 		lm_prob = 0.0;
-
-		applied_rule.src_ids.clear();
-		applied_rule.span_x1 = make_pair(-1,-1);
-		applied_rule.span_x2 = make_pair(-1,-1);
-		applied_rule.tgt_rule = NULL;
 
 		rank_x1 = 0;
 		rank_x2 = 0;

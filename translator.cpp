@@ -317,6 +317,7 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
 			Rule rule;
 			rule.src_ids = ids_X1X2;
 			rule.tgt_rule = &((*matched_rules_for_prefixes.back()).at(0));
+			rule.tgt_rule_rank = 0;
 			rule.span_x1 = make_pair(0,nt1_span);
 			rule.span_x2 = make_pair(nt1_span+1,span-nt1_span-1);
 			span2rules.at(0).at(span).push_back(rule);
@@ -332,12 +333,13 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
 ************************************************************************************* */
 void SentenceTranslator::fill_span2rules_with_matched_rules(vector<TgtRule> &matched_rules,vector<int> &src_ids,pair<int,int> span,pair<int,int> span_src_x1,pair<int,int> span_src_x2)
 {
-	for (auto &tgt_rule : matched_rules)
+	for (int i=0;i<matched_rules.size();i++)
 	{
 		Rule rule;
 		rule.src_ids = src_ids;
-		rule.tgt_rule = &tgt_rule;
-		if (tgt_rule.rule_type == 3)
+		rule.tgt_rule = &matched_rules.at(i);
+		rule.tgt_rule_rank = i;
+		if (matched_rules.at(i).rule_type == 3)
 		{
 			rule.span_x1 = span_src_x2;
 			rule.span_x2 = span_src_x1;
@@ -479,9 +481,10 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 			best_cand->score += feature_weight.lm*increased_lm_prob;
 		}
 		
+		//key包含两个变量在源端的span，子候选在两个变量中的排名，以及规则目标端在源端相同的所有目标端的排名
 		vector<int> key = {best_cand->applied_rule.span_x1.first,best_cand->applied_rule.span_x1.second,
 						   best_cand->applied_rule.span_x2.first,best_cand->applied_rule.span_x2.second,
-						   best_cand->rank_x1,best_cand->rank_x2};
+						   best_cand->rank_x1,best_cand->rank_x2,best_cand->applied_rule.tgt_rule_rank};
 		if (duplicate_set.find(key) == duplicate_set.end())
 		{
 			add_neighbours_to_pq(best_cand,candpq_merge);
