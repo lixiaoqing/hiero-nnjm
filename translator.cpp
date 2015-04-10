@@ -462,6 +462,8 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge);
 	}
 
+	set<vector<int> > duplicate_set;	//用来记录candpq_merge中的候选是否已经被扩展过
+	duplicate_set.clear();
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入span2cands中,并将该候选的邻居加入candpq_merge中
 	int added_cand_num = 0;
 	while (added_cand_num<para.BEAM_SIZE)
@@ -477,7 +479,14 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 			best_cand->score += feature_weight.lm*increased_lm_prob;
 		}
 		
-		add_neighbours_to_pq(best_cand,candpq_merge);
+		vector<int> key = {best_cand->applied_rule.span_x1.first,best_cand->applied_rule.span_x1.second,
+						   best_cand->applied_rule.span_x2.first,best_cand->applied_rule.span_x2.second,
+						   best_cand->rank_x1,best_cand->rank_x2};
+		if (duplicate_set.find(key) == duplicate_set.end())
+		{
+			add_neighbours_to_pq(best_cand,candpq_merge);
+			duplicate_set.insert(key);
+		}
 		bool flag = span2cands.at(beg).at(span).add(best_cand);
 		if (flag == false)					//如果被丢弃
 		{
