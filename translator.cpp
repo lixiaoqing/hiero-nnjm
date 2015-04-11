@@ -175,7 +175,7 @@ void SentenceTranslator::fill_span2rules_with_AX_XA_XAX_rule()
 					{
 						for (int nt2_span=0;nt2_span<src_sen_len-ts_beg-ts_span-1 && nt2_span<SPAN_LEN_MAX-ts_span-nt1_span-1;nt2_span++)   //TODO 注意边界取值
 						{
-							pair<int,int> span = make_pair(ts_beg-nt1_span-1,ts_span+nt1_span+nt2_span+1);
+							pair<int,int> span = make_pair(ts_beg-nt1_span-1,ts_span+nt1_span+nt2_span+2);
 							pair<int,int> span_src_x1 = make_pair(ts_beg-nt1_span-1,nt1_span);
 							pair<int,int> span_src_x2 = make_pair(ts_beg+ts_span+1,nt2_span);
 							fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_XAX,span,span_src_x1,span_src_x2);
