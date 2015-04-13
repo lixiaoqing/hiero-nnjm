@@ -29,17 +29,6 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 
 		tgt_rule.probs.resize(PROB_NUM);
 		fin.read((char*)&(tgt_rule.probs[0]),sizeof(double)*PROB_NUM);
-		for(auto &e : tgt_rule.probs)
-		{
-			if( abs(e) <= numeric_limits<double>::epsilon() )
-			{
-				e = LogP_PseudoZero;
-			}
-			else
-			{
-				e = log10(e);
-			}
-		}
 
 		tgt_rule.score = 0;
 		if( tgt_rule.probs.size() != weight.trans.size() )

@@ -90,7 +90,17 @@ void ruletable2bin(string rule_filename)
 		Split(prob_str_vec,elements[2]);
 		for (const auto &prob_str : prob_str_vec)
 		{
-			prob_vec.push_back(stod(prob_str));
+			double prob = stod(prob_str);
+			double log_prob = 0.0;
+			if( abs(prob) <= numeric_limits<double>::epsilon() )
+			{
+				log_prob = LogP_PseudoZero;
+			}
+			else
+			{
+				log_prob = log10(prob);
+			}
+			prob_vec.push_back(log_prob);
 		}
 
 		if (nonterminal_idx_en.size() == 2)
@@ -128,7 +138,7 @@ void ruletable2bin(string rule_filename)
 	vector<int> ch_id_vec = {ch_vocab["[X][X]"],ch_vocab["[X][X]"]};
 	short int en_rule_len = 2;
 	vector<int> en_id_vec = {en_vocab["[X][X]"],en_vocab["[X][X]"]};
-	vector<double> prob_vec = {1,1,1,1};
+	vector<double> prob_vec = {0,0,0,0};
 	short int rule_type = 4;
 	fout.write((char*)&ch_rule_len,sizeof(short int));
 	fout.write((char*)&ch_id_vec[0],sizeof(int)*ch_rule_len);
