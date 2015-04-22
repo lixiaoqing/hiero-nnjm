@@ -117,16 +117,17 @@ void SentenceTranslator::fill_span2rules_with_hiero_rules()
  2. 入口参数: 无
  3. 出口参数: 无
  4. 算法简介: 按照终结符序列的起始位置和长度遍历所有可能的pattern
+			  p.s. beg_A+len_A为A的最后一个单词的位置
 ************************************************************************************* */
 void SentenceTranslator::fill_span2rules_with_AX_XA_XAX_rule()
 {
-	for (int ts_beg=0;ts_beg<src_sen_len;ts_beg++)
+	for (int beg_A=0;beg_A<src_sen_len;beg_A++)
 	{
-		for (int ts_span=0;ts_span<src_sen_len-ts_beg && ts_span<SPAN_LEN_MAX;ts_span++)
+		for (int len_A=0;beg_A+len_A<src_sen_len && len_A+1<=SPAN_LEN_MAX;len_A++)
 		{
-			vector<int> ids_A(src_wids.begin()+ts_beg,src_wids.begin()+ts_beg+ts_span+1);
+			vector<int> ids_A(src_wids.begin()+beg_A,src_wids.begin()+beg_A+len_A+1);
 			//抽取形如XA的规则
-			if (ts_beg != 0)
+			if (beg_A != 0)
 			{
 				vector<int> ids_XA;
 				ids_XA.push_back(src_nt_id);
@@ -134,17 +135,18 @@ void SentenceTranslator::fill_span2rules_with_AX_XA_XAX_rule()
 				vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_XA,0);
 				if (matched_rules_for_prefixes.size() == ids_XA.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 				{
-					for (int nt_span=0;nt_span<ts_beg && nt_span<SPAN_LEN_MAX-ts_span-1;nt_span++)   //TODO 注意边界取值
+					for (int len_X=0;len_X<beg_A && len_X+len_A+2<=SPAN_LEN_MAX;len_X++)
 					{
-						pair<int,int> span = make_pair(ts_beg-nt_span-1,ts_span+nt_span+1);
-						pair<int,int> span_src_x1 = make_pair(ts_beg-nt_span-1,nt_span);
+						int beg_X = beg_A - len_X - 1;
+						pair<int,int> span = make_pair(beg_X,len_X+len_A+1);
+						pair<int,int> span_src_x1 = make_pair(beg_X,len_X);
 						pair<int,int> span_src_x2 = make_pair(-1,-1);
 						fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_XA,span,span_src_x1,span_src_x2);
 					}
 				}
 			}
 			//抽取形如AX的规则
-			if (ts_beg+ts_span != src_sen_len - 1)
+			if (beg_A+len_A != src_sen_len - 1)
 			{
 				vector<int> ids_AX;
 				ids_AX = ids_A;
@@ -152,17 +154,18 @@ void SentenceTranslator::fill_span2rules_with_AX_XA_XAX_rule()
 				vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_AX,0);
 				if (matched_rules_for_prefixes.size() == ids_AX.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 				{
-					for (int nt_span=0;nt_span<src_sen_len-ts_beg-ts_span-1 && nt_span<SPAN_LEN_MAX-ts_span-1;nt_span++)   //TODO 注意边界取值
+					for (int len_X=0;beg_A+len_A+1+len_X<src_sen_len && len_A+len_X+2<=SPAN_LEN_MAX;len_X++)
 					{
-						pair<int,int> span = make_pair(ts_beg,ts_span+nt_span+1);
-						pair<int,int> span_src_x1 = make_pair(ts_beg+ts_span+1,nt_span);
+						int beg_X = beg_A + len_A + 1;
+						pair<int,int> span = make_pair(beg_A,len_A+len_X+1);
+						pair<int,int> span_src_x1 = make_pair(beg_X,len_X);
 						pair<int,int> span_src_x2 = make_pair(-1,-1);
 						fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_AX,span,span_src_x1,span_src_x2);
 					}
 				}
 			}
 			//抽取形如XAX的规则
-			if (ts_beg != 0 && ts_beg+ts_span != src_sen_len - 1)
+			if (beg_A != 0 && beg_A+len_A != src_sen_len - 1)
 			{
 				vector<int> ids_XAX;
 				ids_XAX.push_back(src_nt_id);
@@ -171,13 +174,15 @@ void SentenceTranslator::fill_span2rules_with_AX_XA_XAX_rule()
 				vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_XAX,0);
 				if (matched_rules_for_prefixes.size() == ids_XAX.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 				{
-					for (int nt1_span=0;nt1_span<ts_beg && nt1_span<SPAN_LEN_MAX-ts_span-2;nt1_span++)   //TODO 注意边界取值
+					for (int len_X1=0;len_X1<beg_A && len_X1+len_A+2<=SPAN_LEN_MAX-1;len_X1++)
 					{
-						for (int nt2_span=0;nt2_span<src_sen_len-ts_beg-ts_span-1 && nt2_span<SPAN_LEN_MAX-ts_span-nt1_span-1;nt2_span++)   //TODO 注意边界取值
+						for (int len_X2=0;beg_A+len_A+1+len_X2<src_sen_len && len_X1+len_A+len_X2<=SPAN_LEN_MAX;len_X2++)
 						{
-							pair<int,int> span = make_pair(ts_beg-nt1_span-1,ts_span+nt1_span+nt2_span+2);
-							pair<int,int> span_src_x1 = make_pair(ts_beg-nt1_span-1,nt1_span);
-							pair<int,int> span_src_x2 = make_pair(ts_beg+ts_span+1,nt2_span);
+							int beg_X1 = beg_A - len_X1 - 1;
+							int beg_X2 = beg_A + len_A + 1;
+							pair<int,int> span = make_pair(beg_X1,len_X1+len_A+len_X2+2);
+							pair<int,int> span_src_x1 = make_pair(beg_X1,len_X1);
+							pair<int,int> span_src_x2 = make_pair(beg_X2,len_X2);
 							fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_XAX,span,span_src_x1,span_src_x2);
 						}
 					}
@@ -195,19 +200,19 @@ void SentenceTranslator::fill_span2rules_with_AX_XA_XAX_rule()
 ************************************************************************************* */
 void SentenceTranslator::fill_span2rules_with_AXB_AXBX_XAXB_rule()
 {
-	for (int ts_beg=0;ts_beg<src_sen_len;ts_beg++)
+	for (int beg_AXB=0;beg_AXB<src_sen_len;beg_AXB++)
 	{
-		for (int ts_span=0;ts_span<src_sen_len-ts_beg && ts_span<SPAN_LEN_MAX;ts_span++)           //此处的ts_span为两个非终结符序列从头到尾的总跨度
+		for (int len_AXB=0;beg_AXB+len_AXB<src_sen_len && len_AXB<=SPAN_LEN_MAX;len_AXB++)
 		{
-			for (int inner_nts_beg=ts_beg+1;inner_nts_beg<ts_beg+ts_span-1;inner_nts_beg++)
+			for (int beg_X=beg_AXB+1;beg_X<beg_AXB+len_AXB;beg_X++)
 			{
-				for (int inner_nts_span=0;inner_nts_span<ts_span-(inner_nts_beg-ts_beg);inner_nts_span++)
+				for (int len_X=0;beg_X+len_X<beg_AXB+len_AXB;len_X++)
 				{
-					vector<int> ids_AXB(src_wids.begin()+ts_beg,src_wids.begin()+inner_nts_beg);
+					vector<int> ids_AXB(src_wids.begin()+beg_AXB,src_wids.begin()+beg_X);
 					ids_AXB.push_back(src_nt_id);
-					ids_AXB.insert(ids_AXB.end(),src_wids.begin()+inner_nts_beg+inner_nts_span+1,src_wids.begin()+ts_beg+ts_span+1);
+					ids_AXB.insert(ids_AXB.end(),src_wids.begin()+beg_X+len_X+1,src_wids.begin()+beg_AXB+len_AXB+1);
 					//抽取形如XAXB的pattern
-					if (ts_beg != 0)
+					if (beg_AXB != 0)
 					{
 						vector<int> ids_XAXB;
 						ids_XAXB.push_back(src_nt_id);
@@ -215,17 +220,18 @@ void SentenceTranslator::fill_span2rules_with_AXB_AXBX_XAXB_rule()
 						vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_XAXB,0);
 						if (matched_rules_for_prefixes.size() == ids_XAXB.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 						{
-							for (int lhs_nt_span=0;lhs_nt_span<ts_beg && lhs_nt_span<SPAN_LEN_MAX-ts_span-1;lhs_nt_span++)   //TODO 注意边界取值
+							for (int len_X1=0;len_X1<beg_AXB && len_X1+len_AXB+2<=SPAN_LEN_MAX;len_X1++)
 							{
-								pair<int,int> span = make_pair(ts_beg-lhs_nt_span-1,ts_span+lhs_nt_span+1);
-								pair<int,int> span_src_x1 = make_pair(ts_beg-lhs_nt_span-1,lhs_nt_span);
-								pair<int,int> span_src_x2 = make_pair(inner_nts_beg,inner_nts_span);
+								int beg_X1 = beg_AXB - len_X1 - 1;
+								pair<int,int> span = make_pair(beg_X1,len_X1+len_AXB+1);
+								pair<int,int> span_src_x1 = make_pair(beg_X1,len_X1);
+								pair<int,int> span_src_x2 = make_pair(beg_X,len_X);
 								fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_XAXB,span,span_src_x1,span_src_x2);
 							}
 						}
 					}
 					//抽取形如AXBX的pattern
-					if (ts_beg+ts_span != src_sen_len - 1)
+					if (beg_AXB+len_AXB != src_sen_len - 1)
 					{
 						vector<int> ids_AXBX;
 						ids_AXBX = ids_AXB;
@@ -233,11 +239,12 @@ void SentenceTranslator::fill_span2rules_with_AXB_AXBX_XAXB_rule()
 						vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_AXBX,0);
 						if (matched_rules_for_prefixes.size() == ids_AXBX.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 						{
-							for (int rhs_nt_span=0;rhs_nt_span<src_sen_len-ts_beg-ts_span-1 && rhs_nt_span<SPAN_LEN_MAX-ts_span-1;rhs_nt_span++)   //TODO 注意边界取值
+							for (int len_X2=0;beg_AXB+len_AXB+1+len_X2<src_sen_len && len_AXB+len_X2+2<=SPAN_LEN_MAX;len_X2++)
 							{
-								pair<int,int> span = make_pair(ts_beg,ts_span+rhs_nt_span+1);
-								pair<int,int> span_src_x1 = make_pair(inner_nts_beg,inner_nts_span);
-								pair<int,int> span_src_x2 = make_pair(ts_beg+ts_span+1,rhs_nt_span);
+								int beg_X2 = beg_AXB + len_AXB + 1;
+								pair<int,int> span = make_pair(beg_AXB,len_AXB+len_X2+1);
+								pair<int,int> span_src_x1 = make_pair(beg_X,len_X);
+								pair<int,int> span_src_x2 = make_pair(beg_X2,len_X2);
 								fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_AXBX,span,span_src_x1,span_src_x2);
 							}
 						}
@@ -246,8 +253,8 @@ void SentenceTranslator::fill_span2rules_with_AXB_AXBX_XAXB_rule()
 					vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_AXB,0);
 					if (matched_rules_for_prefixes.size() == ids_AXB.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 					{
-						pair<int,int> span = make_pair(ts_beg,ts_span);
-						pair<int,int> span_src_x1 = make_pair(inner_nts_beg,inner_nts_span);
+						pair<int,int> span = make_pair(beg_AXB,len_AXB);
+						pair<int,int> span_src_x1 = make_pair(beg_X,len_X);
 						pair<int,int> span_src_x2 = make_pair(-1,-1);
 						fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_AXB,span,span_src_x1,span_src_x2);
 					}
@@ -265,30 +272,30 @@ void SentenceTranslator::fill_span2rules_with_AXB_AXBX_XAXB_rule()
 ************************************************************************************* */
 void SentenceTranslator::fill_span2rules_with_AXBXC_rule()
 {
-	for (int ts_beg=0;ts_beg<src_sen_len;ts_beg++)
+	for (int beg_AXBXC=0;beg_AXBXC<src_sen_len;beg_AXBXC++)
 	{
-		for (int ts_span=0;ts_span<src_sen_len-ts_beg && ts_span<SPAN_LEN_MAX;ts_span++)                    //此处的ts_span为三个终结符序列从头到尾的总跨度
+		for (int len_AXBXC=4;beg_AXBXC+len_AXBXC<src_sen_len && len_AXBXC<=SPAN_LEN_MAX;len_AXBXC++)
 		{
-			for (int inner_nts_beg=ts_beg+1;inner_nts_beg<ts_beg+ts_span-1;inner_nts_beg++)
+			for (int beg_XBX=beg_AXBXC+1;beg_XBX+2<beg_AXBXC+len_AXBXC;beg_XBX++)
 			{
-				for (int inner_nts_span=0;inner_nts_span<ts_span-(inner_nts_beg-ts_beg);inner_nts_span++)   //此处的inner_nts_span为两个非终结符序列从头到尾的总跨度
+				for (int len_XBX=0;beg_XBX+len_XBX<beg_AXBXC+len_AXBXC;len_XBX++)
 				{
-					for (int inner_ts_beg=inner_nts_beg+1;inner_ts_beg<inner_nts_beg+inner_nts_span;inner_ts_beg++)
+					for (int beg_B=beg_XBX+1;beg_B<beg_XBX+len_XBX;beg_B++)
 					{
-						for (int inner_ts_span=0;inner_ts_span<inner_nts_span-(inner_ts_beg-inner_nts_beg);inner_ts_span++)
+						for (int len_B=0;len_B<len_XBX-(beg_B-beg_XBX);len_B++)
 						{
 							//抽取形如AXBXC的pattern
-							vector<int> ids_AXBXC(src_wids.begin()+ts_beg,src_wids.begin()+inner_nts_beg);
+							vector<int> ids_AXBXC(src_wids.begin()+beg_AXBXC,src_wids.begin()+beg_XBX);
 							ids_AXBXC.push_back(src_nt_id);
-							ids_AXBXC.insert(ids_AXBXC.end(),src_wids.begin()+inner_ts_beg,src_wids.begin()+inner_ts_beg+inner_ts_span+1);
+							ids_AXBXC.insert(ids_AXBXC.end(),src_wids.begin()+beg_B,src_wids.begin()+beg_B+len_B+1);
 							ids_AXBXC.push_back(src_nt_id);
-							ids_AXBXC.insert(ids_AXBXC.end(),src_wids.begin()+inner_ts_beg+inner_ts_span+1,src_wids.begin()+ts_beg+ts_span+1);
+							ids_AXBXC.insert(ids_AXBXC.end(),src_wids.begin()+beg_XBX+len_XBX+1,src_wids.begin()+beg_AXBXC+len_AXBXC+1);
 							vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_AXBXC,0);
 							if (matched_rules_for_prefixes.size() == ids_AXBXC.size() && matched_rules_for_prefixes.back() != NULL)         //找到了可用的规则
 							{
-								pair<int,int> span = make_pair(ts_beg,ts_span);
-								pair<int,int> span_src_x1 = make_pair(inner_nts_beg,inner_ts_beg-inner_nts_beg-1);
-								pair<int,int> span_src_x2 = make_pair(inner_ts_beg+inner_ts_span+1,inner_nts_span-inner_ts_span-(inner_ts_beg-inner_nts_beg-1)-2);
+								pair<int,int> span = make_pair(beg_AXBXC,len_AXBXC);
+								pair<int,int> span_src_x1 = make_pair(beg_XBX,beg_B-beg_XBX-1);
+								pair<int,int> span_src_x2 = make_pair(beg_B+len_B+1,len_XBX-len_B-(beg_B-beg_XBX-1)-2);
 								fill_span2rules_with_matched_rules(*matched_rules_for_prefixes.back(),ids_AXBXC,span,span_src_x1,span_src_x2);
 							}
 						}
@@ -310,17 +317,17 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
 	vector<int> ids_X1X2 = {src_nt_id,src_nt_id};
 	vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_X1X2,0);
 	//assert(matched_rules_for_prefixes.size() == 2 && matched_rules_for_prefixes.back() != NULL);
-	for (int span=1;span<src_sen_len;span++)                      //glue pattern的跨度不受规则最大跨度RULE_LEN_MAX的限制，可以延伸到句尾
+	for (int len_X1X2=1;len_X1X2<src_sen_len;len_X1X2++)                      //glue pattern的跨度不受规则最大跨度RULE_LEN_MAX的限制，可以延伸到句尾
 	{
-		for (int nt1_span=0;nt1_span<span;nt1_span++)
+		for (int len_X1=0;len_X1<len_X1X2;len_X1++)
 		{
 			Rule rule;
 			rule.src_ids = ids_X1X2;
 			rule.tgt_rule = &((*matched_rules_for_prefixes.back()).at(0));
 			rule.tgt_rule_rank = 0;
-			rule.span_x1 = make_pair(0,nt1_span);
-			rule.span_x2 = make_pair(nt1_span+1,span-nt1_span-1);
-			span2rules.at(0).at(span).push_back(rule);
+			rule.span_x1 = make_pair(0,len_X1);
+			rule.span_x2 = make_pair(len_X1+1,len_X1X2-len_X1-1);
+			span2rules.at(0).at(len_X1X2).push_back(rule);
 		}
 	}
 }
