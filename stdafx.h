@@ -57,7 +57,8 @@ struct Filenames
 
 struct Parameter
 {
-	size_t BEAM_SIZE;					//优先级队列的大小限制
+	size_t BEAM_SIZE;					//每个span保留的候选个数
+	size_t CUBE_SIZE;					//立方体剪枝扩展的次数
 	size_t SEN_THREAD_NUM;				//句子级并行数
 	size_t SPAN_THREAD_NUM;				//span级并行数
 	size_t NBEST_NUM;

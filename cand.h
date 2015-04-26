@@ -67,7 +67,7 @@ struct Cand
 	}
 };
 
-struct smaller
+struct cmp
 {
 	bool operator() ( const Cand *pl, const Cand *pr )
 	{
@@ -76,12 +76,13 @@ struct smaller
 };
 
 bool larger( const Cand *pl, const Cand *pr );
+bool smaller( const Cand *pl, const Cand *pr );
 
 //将跨度相同的候选组织到列表中
 class CandBeam
 {
 	public:
-		bool add(Cand *&cand_ptr);
+		void add(Cand *&cand_ptr,int beam_size);
 		Cand* top() { return data.front(); }
 		Cand* at(size_t i) { return data.at(i);}
 		int size() { return data.size();  }
@@ -92,9 +93,8 @@ class CandBeam
 
 	private:
 		vector<Cand*> data;
-		vector<Cand*> recombined_cands;
 };
 
-typedef priority_queue<Cand*, vector<Cand*>, smaller> Candpq;
+typedef priority_queue<Cand*, vector<Cand*>, cmp> Candpq;
 
 #endif

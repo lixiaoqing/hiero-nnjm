@@ -73,7 +73,7 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 					cand->lm_prob = lm_model->cal_increased_lm_score(cand);
 					cand->score += feature_weight.rule_num*cand->rule_num 
 						       + feature_weight.len*cand->tgt_word_num + feature_weight.lm*cand->lm_prob;
-					span2cands.at(beg).at(span).add(cand);
+					span2cands.at(beg).at(span).add(cand,para.BEAM_SIZE);
 				}
 				continue;
 			}
@@ -90,7 +90,7 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 				cand->lm_prob = lm_model->cal_increased_lm_score(cand);
 				cand->score += feature_weight.rule_num*cand->rule_num 
 					       + feature_weight.len*cand->tgt_word_num + feature_weight.lm*cand->lm_prob;
-				span2cands.at(beg).at(span).add(cand);
+				span2cands.at(beg).at(span).add(cand,para.BEAM_SIZE);
 			}
 		}
 	}
@@ -475,7 +475,7 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	duplicate_set.clear();
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入span2cands中,并将该候选的邻居加入candpq_merge中
 	int added_cand_num = 0;
-	while (added_cand_num<para.BEAM_SIZE)
+	while (added_cand_num<para.CUBE_SIZE)
 	{
 		if (candpq_merge.empty()==true)
 			break;
@@ -497,15 +497,8 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 			add_neighbours_to_pq(best_cand,candpq_merge);
 			duplicate_set.insert(key);
 		}
-		bool flag = span2cands.at(beg).at(span).add(best_cand);
-		if (flag == false)					//如果被丢弃
-		{
-			delete best_cand;
-		}
-		else
-		{
-			added_cand_num++;
-		}
+		span2cands.at(beg).at(span).add(best_cand,para.BEAM_SIZE);
+		added_cand_num++;
 	}
 	while(!candpq_merge.empty())
 	{

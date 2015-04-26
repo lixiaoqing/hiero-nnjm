@@ -5,6 +5,11 @@ bool larger( const Cand *pl, const Cand *pr )
 	return pl->score > pr->score;
 }
 
+bool smaller( const Cand *pl, const Cand *pr )
+{
+	return pl->score < pr->score;
+}
+
 /************************************************************************
  1. 函数功能: 将翻译候选加入列表中, 并进行假设重组
  2. 入口参数: 翻译候选的指针
@@ -16,26 +21,33 @@ bool larger( const Cand *pl, const Cand *pr )
               b) 如果当前候选与优先级队列中的所有候选的目标端边界词不同,
 	         则将当前候选加入列表
  * **********************************************************************/
-bool CandBeam::add(Cand *&cand_ptr)
+void CandBeam::add(Cand *&cand_ptr,int beam_size)
 { 
 	for (auto &e_cand_ptr : data)
 	{
 		if (is_bound_same(cand_ptr,e_cand_ptr))
 		{
-			if (cand_ptr->score <= e_cand_ptr->score)
-			{
-				return false;
-			}
 			if (cand_ptr->score > e_cand_ptr->score)
 			{
 				swap(e_cand_ptr,cand_ptr);
-				recombined_cands.push_back(cand_ptr);
-				return true;
 			}
+			delete cand_ptr;
+			return;
 		}
 	}
+	if (data.size() >= beam_size)
+	{
+		/*
+		auto it = min_element(data.begin(),data.end(),smaller);
+		Cand *min_cand = *it;
+		*it = cand_ptr;
+		delete min_cand;
+		*/
+		swap(*min_element(data.begin(),data.end(),smaller),cand_ptr);
+		delete cand_ptr;
+		return;
+	}
 	data.push_back(cand_ptr); 
-	return true;
 }
 
 bool CandBeam::is_bound_same(const Cand *a, const Cand *b)
@@ -59,10 +71,6 @@ bool CandBeam::is_bound_same(const Cand *a, const Cand *b)
 void CandBeam::free()
 {
 	for (auto cand : data)
-	{
-		delete cand;
-	}
-	for (auto cand : recombined_cands)
 	{
 		delete cand;
 	}

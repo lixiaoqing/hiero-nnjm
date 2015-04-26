@@ -53,6 +53,11 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 			getline(fin,line);
 			para.BEAM_SIZE = stoi(line);
 		}
+		else if (line == "[CUBE-SIZE]")
+		{
+			getline(fin,line);
+			para.CUBE_SIZE = stoi(line);
+		}
 		else if (line == "[SEN-THREAD-NUM]")
 		{
 			getline(fin,line);
