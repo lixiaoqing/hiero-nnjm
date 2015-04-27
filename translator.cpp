@@ -465,7 +465,7 @@ string SentenceTranslator::translate_sentence()
 			span2cands.at(beg).at(span).sort();
 		}
 	}
-	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,0);
+	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV);
 }
 
 /**************************************************************************************
