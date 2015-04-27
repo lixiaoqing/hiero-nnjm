@@ -88,6 +88,11 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 			getline(fin,line);
 			para.DUMP_RULE = stoi(line);
 		}
+		else if (line == "[DROP-OOV]")
+		{
+			getline(fin,line);
+			para.DROP_OOV = stoi(line);
+		}
 		else if (line == "[weight]")
 		{
 			while(getline(fin,line))

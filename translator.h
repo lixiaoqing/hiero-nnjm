@@ -33,7 +33,7 @@ class SentenceTranslator
 		void generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &new_cands_by_mergence);
 		void add_neighbours_to_pq(Cand *cur_cand, Candpq &new_cands_by_mergence);
 		void dump_rules(vector<string> &applied_rules, Cand *cand);
-		string words_to_str(vector<int> wids, bool drop_unk);
+		string words_to_str(vector<int> wids, int drop_oov);
 
 	private:
 		Vocab *src_vocab;

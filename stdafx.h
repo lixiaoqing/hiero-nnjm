@@ -65,6 +65,7 @@ struct Parameter
 	size_t RULE_NUM_LIMIT;		      	//源端相同的情况下最多能加载的规则数
 	bool PRINT_NBEST;
 	bool DUMP_RULE;						//是否输出所使用的规则
+	bool DROP_OOV;						//是否在译文中显示OOV
 };
 
 struct Weight

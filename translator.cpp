@@ -63,7 +63,7 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 				if (span == 0)
 				{
 					Cand* cand = new Cand;
-					cand->tgt_wids.push_back(tgt_vocab->get_id("NULL"));
+					cand->tgt_wids.push_back(0 - src_wids.at(beg));
 					cand->trans_probs.resize(PROB_NUM,LogP_PseudoZero);
 					for (size_t i=0;i<PROB_NUM;i++)
 					{
@@ -361,15 +361,18 @@ void SentenceTranslator::fill_span2rules_with_matched_rules(vector<TgtRule> &mat
 
 }
 
-string SentenceTranslator::words_to_str(vector<int> wids, bool drop_unk)
+string SentenceTranslator::words_to_str(vector<int> wids, int drop_oov)
 {
 		string output = "";
 		for (const auto &wid : wids)
 		{
-			string word = tgt_vocab->get_word(wid);
-			if (word != "NULL" || drop_unk == false)
+			if (wid >= 0)
 			{
-				output += word + " ";
+				output += tgt_vocab->get_word(wid) + " ";
+			}
+			else if (drop_oov == 0)
+			{
+				output += src_vocab->get_word(0-wid) + " ";
 			}
 		}
 		TrimLine(output);
@@ -384,7 +387,7 @@ vector<TuneInfo> SentenceTranslator::get_tune_info(size_t sen_id)
 	{
 		TuneInfo tune_info;
 		tune_info.sen_id = sen_id;
-		tune_info.translation = words_to_str(candbeam.at(i)->tgt_wids,false);
+		tune_info.translation = words_to_str(candbeam.at(i)->tgt_wids,0);
 		for (size_t j=0;j<PROB_NUM;j++)
 		{
 			tune_info.feature_values.push_back(candbeam.at(i)->trans_probs.at(j));
@@ -422,13 +425,23 @@ void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 		rule += src_vocab->get_word(src_wid)+" ";
 	}
 	rule += "||| ";
-	for (auto tgt_wid : cand->applied_rule.tgt_rule->wids)
+	if (cand->applied_rule.tgt_rule == NULL)
 	{
-		rule += tgt_vocab->get_word(tgt_wid)+" ";
+		rule += "NULL ";
+	}
+	else
+	{
+		for (auto tgt_wid : cand->applied_rule.tgt_rule->wids)
+		{
+			rule += tgt_vocab->get_word(tgt_wid)+" ";
+		}
 	}
 	TrimLine(rule);
 	applied_rules.push_back(rule);
-	dump_rules(applied_rules,cand->child_x1);
+	if (cand->child_x1 != NULL)
+	{
+		dump_rules(applied_rules,cand->child_x1);
+	}
 	if (cand->child_x2 != NULL)
 	{
 		dump_rules(applied_rules,cand->child_x2);
@@ -452,7 +465,7 @@ string SentenceTranslator::translate_sentence()
 			span2cands.at(beg).at(span).sort();
 		}
 	}
-	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,true);
+	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,0);
 }
 
 /**************************************************************************************
