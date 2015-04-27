@@ -419,33 +419,89 @@ vector<string> SentenceTranslator::get_applied_rules(size_t sen_id)
 ************************************************************************************* */
 void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 {
+	applied_rules.push_back(" ( ");
 	string rule;
+	int nt_num = 0;
 	for (auto src_wid : cand->applied_rule.src_ids)
 	{
-		rule += src_vocab->get_word(src_wid)+" ";
+		if (src_wid == src_nt_id)
+		{
+			nt_num++;
+			if (nt_num == 1)
+			{
+				rule += "X1_";
+			}
+			else if (nt_num == 2)
+			{
+				rule += "X2_";
+			}
+		}
+		else
+		{
+			rule += src_vocab->get_word(src_wid)+"_";
+		}
 	}
-	rule += "||| ";
+	rule += "|||_";
 	if (cand->applied_rule.tgt_rule == NULL)
 	{
-		rule += "NULL ";
+		rule += "NULL_";
 	}
 	else
 	{
+		nt_num = 0;
 		for (auto tgt_wid : cand->applied_rule.tgt_rule->wids)
 		{
-			rule += tgt_vocab->get_word(tgt_wid)+" ";
+			if (tgt_wid == tgt_nt_id)
+			{
+				nt_num++;
+				if (nt_num == 1)
+				{
+					if (cand->applied_rule.tgt_rule->rule_type == 3)
+					{
+						rule += "X2_";
+					}
+					else
+					{
+						rule += "X1_";
+					}
+				}
+				else if (nt_num == 2)
+				{
+					if (cand->applied_rule.tgt_rule->rule_type == 3)
+					{
+						rule += "X1_";
+					}
+					else
+					{
+						rule += "X2_";
+					}
+				}
+			}
+			else
+			{
+				rule += tgt_vocab->get_word(tgt_wid)+"_";
+			}
 		}
 	}
-	TrimLine(rule);
+	rule.erase(rule.end()-1);
 	applied_rules.push_back(rule);
-	if (cand->child_x1 != NULL)
-	{
-		dump_rules(applied_rules,cand->child_x1);
-	}
-	if (cand->child_x2 != NULL)
+	if (cand->applied_rule.tgt_rule != NULL && cand->applied_rule.tgt_rule->rule_type == 3)
 	{
 		dump_rules(applied_rules,cand->child_x2);
+		dump_rules(applied_rules,cand->child_x1);
 	}
+	else
+	{
+		if (cand->child_x1 != NULL)
+		{
+			dump_rules(applied_rules,cand->child_x1);
+		}
+		if (cand->child_x2 != NULL)
+		{
+			dump_rules(applied_rules,cand->child_x2);
+		}
+	}
+	applied_rules.push_back(" ) ");
 }
 
 string SentenceTranslator::translate_sentence()

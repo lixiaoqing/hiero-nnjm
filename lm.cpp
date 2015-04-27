@@ -46,15 +46,15 @@ double LanguageModel::cal_increased_lm_score(Cand* cand)
 	}
 	else
 	{
-		int nonterminal_rank = 1;
+		int nt_num = 1;
 		for (auto wid : cand->applied_rule.tgt_rule->wids)
 		{
 			if (wid == nonterminal_wid)
 			{
-				if (nonterminal_rank == 1)
+				if (nt_num == 1)
 				{
 					rule_score.NonTerminal((cand->child_x1)->lm_state);
-					nonterminal_rank += 1;
+					nt_num += 1;
 				}
 				else
 				{

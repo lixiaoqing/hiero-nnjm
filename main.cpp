@@ -228,11 +228,13 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
 		size_t n=0;
 		for (const auto &applied_rules : applied_rules_list)
 		{
-			frules<<++n<<endl;
+			//frules<<++n<<endl;
 			for (const auto &applied_rule : applied_rules)
 			{
-				frules<<applied_rule<<endl;
+				//frules<<applied_rule<<endl;
+				frules<<applied_rule;
 			}
+			frules<<endl;
 		}
 	}
 }
