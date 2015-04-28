@@ -407,6 +407,13 @@ vector<string> SentenceTranslator::get_applied_rules(size_t sen_id)
 	vector<string> applied_rules;
 	Cand *best_cand = span2cands.at(0).at(src_sen_len-1).top();
 	dump_rules(applied_rules,best_cand);
+	applied_rules.push_back(" ||||| ");
+	string src_sen;
+	for (auto wid : src_wids)
+	{
+		src_sen += src_vocab->get_word(wid)+" ";
+	}
+	applied_rules.push_back(src_sen);
 	return applied_rules;
 }
 
@@ -419,22 +426,32 @@ vector<string> SentenceTranslator::get_applied_rules(size_t sen_id)
 ************************************************************************************* */
 void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 {
-	applied_rules.push_back(" ( ");
+	applied_rules.push_back(" ");
+	if (cand->child_x1 != NULL)
+	{
+		applied_rules.push_back(" ( ");
+	}
 	string rule;
 	int nt_num = 0;
+	vector<string> src_nts = {"X1_","X2_"};
+	vector<string> tgt_nts = {"X1_","X2_"};
+	vector<string> src_spans = 
+	{"(_"+to_string(cand->applied_rule.span_x1.first)+"-"+to_string(cand->applied_rule.span_x1.first+cand->applied_rule.span_x1.second)+"_)_",
+	"(_"+to_string(cand->applied_rule.span_x2.first)+"-"+to_string(cand->applied_rule.span_x2.first+cand->applied_rule.span_x2.second)+"_)_"};
+	vector<Cand*> children = {cand->child_x1,cand->child_x2};
+	if (cand->applied_rule.tgt_rule != NULL && cand->applied_rule.tgt_rule->rule_type == 3)
+	{
+		reverse(src_spans.begin(),src_spans.end());
+		reverse(tgt_nts.begin(),tgt_nts.end());
+		reverse(children.begin(),children.end());
+	}
 	for (auto src_wid : cand->applied_rule.src_ids)
 	{
 		if (src_wid == src_nt_id)
 		{
+			rule += src_nts[nt_num];
+			//rule += src_spans[nt_num];
 			nt_num++;
-			if (nt_num == 1)
-			{
-				rule += "X1_";
-			}
-			else if (nt_num == 2)
-			{
-				rule += "X2_";
-			}
 		}
 		else
 		{
@@ -453,29 +470,8 @@ void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 		{
 			if (tgt_wid == tgt_nt_id)
 			{
+				rule += tgt_nts[nt_num];
 				nt_num++;
-				if (nt_num == 1)
-				{
-					if (cand->applied_rule.tgt_rule->rule_type == 3)
-					{
-						rule += "X2_";
-					}
-					else
-					{
-						rule += "X1_";
-					}
-				}
-				else if (nt_num == 2)
-				{
-					if (cand->applied_rule.tgt_rule->rule_type == 3)
-					{
-						rule += "X1_";
-					}
-					else
-					{
-						rule += "X2_";
-					}
-				}
 			}
 			else
 			{
@@ -485,23 +481,18 @@ void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 	}
 	rule.erase(rule.end()-1);
 	applied_rules.push_back(rule);
-	if (cand->applied_rule.tgt_rule != NULL && cand->applied_rule.tgt_rule->rule_type == 3)
+	if (children[0] != NULL)
 	{
-		dump_rules(applied_rules,cand->child_x2);
-		dump_rules(applied_rules,cand->child_x1);
+		dump_rules(applied_rules,children[0]);
 	}
-	else
+	if (children[1] != NULL)
 	{
-		if (cand->child_x1 != NULL)
-		{
-			dump_rules(applied_rules,cand->child_x1);
-		}
-		if (cand->child_x2 != NULL)
-		{
-			dump_rules(applied_rules,cand->child_x2);
-		}
+		dump_rules(applied_rules,children[1]);
 	}
-	applied_rules.push_back(" ) ");
+	if (cand->child_x1 != NULL)
+	{
+		applied_rules.push_back(" ) ");
+	}
 }
 
 string SentenceTranslator::translate_sentence()
