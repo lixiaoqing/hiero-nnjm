@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++0x -O3 -fopenmp -lz -I. -DKENLM_MAX_ORDER=6
+CXXFLAGS=-std=c++0x -O3 -fopenmp -lz -I. -DKENLM_MAX_ORDER=5
 objs=lm/*.o util/*.o util/double-conversion/*.o
 
 all: translator ruletable2bin
@@ -18,4 +18,4 @@ myutils.o: myutils.h stdafx.h
 ruletable2bin.o:myutils.h stdafx.h
 
 clean:
-	rm *.o
+	rm *.o lm/*.o util/*.o util/double-conversion/*.o
