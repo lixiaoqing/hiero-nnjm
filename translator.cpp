@@ -64,11 +64,7 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 				{
 					Cand* cand = new Cand;
 					cand->tgt_wids.push_back(0 - src_wids.at(beg));
-					cand->trans_probs.resize(PROB_NUM,LogP_PseudoZero);
-					for (size_t i=0;i<PROB_NUM;i++)
-					{
-						cand->score += feature_weight.trans.at(i)*cand->trans_probs.at(i);
-					}
+					cand->trans_probs.resize(PROB_NUM,0.0);
 					cand->applied_rule.src_ids.push_back(src_wids.at(beg));
 					cand->lm_prob = lm_model->cal_increased_lm_score(cand);
 					cand->score += feature_weight.rule_num*cand->rule_num 
