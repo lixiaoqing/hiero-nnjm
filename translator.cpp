@@ -582,7 +582,7 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		cand->applied_rule = rule;
 		if (rule.tgt_rule->rule_type == 4)  //glue规则
 		{
-			cand->rule_num = cand_x1->rule_num + cand_x2->rule_num;
+			cand->rule_num = cand_x1->rule_num + cand_x2->rule_num + 1;
 			cand->glue_num = cand_x1->glue_num + cand_x2->glue_num + 1;
 		}
 		else
@@ -624,7 +624,7 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
 		if (rule.tgt_rule->rule_type == 4)  //glue规则
 		{
 			cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
-					  + feature_weight.glue*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 2);
+					  + feature_weight.rule_num*1 + feature_weight.glue*1 + feature_weight.len*(rule.tgt_rule->wids.size() - 2);
 		}
 		else
 		{
