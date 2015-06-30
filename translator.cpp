@@ -519,16 +519,15 @@ string SentenceTranslator::translate_sentence()
 ************************************************************************************* */
 void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t span)
 {
-	Candpq candpq_merge;			//优先级队列,用来临时存储通过合并得到的候选
+	Candpq candpq_merge;			    //优先级队列,用来临时存储通过合并得到的候选
+	set<vector<int> > duplicate_set;	//用来记录候选是否已经被加入candpq_merge中
 
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : span2rules.at(beg).at(span))
 	{
-		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge);
+		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge,duplicate_set);
 	}
 
-	set<vector<int> > duplicate_set;	//用来记录candpq_merge中的候选是否已经被扩展过
-	duplicate_set.clear();
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入span2cands中,并将该候选的邻居加入candpq_merge中
 	int added_cand_num = 0;
 	while (added_cand_num<para.CUBE_SIZE)
@@ -544,15 +543,7 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 			best_cand->score += feature_weight.lm*increased_lm_prob;
 		}
 		
-		//key包含两个变量在源端的span，子候选在两个变量中的排名，以及规则目标端在源端相同的所有目标端的排名
-		vector<int> key = {best_cand->applied_rule.span_x1.first,best_cand->applied_rule.span_x1.second,
-						   best_cand->applied_rule.span_x2.first,best_cand->applied_rule.span_x2.second,
-						   best_cand->rank_x1,best_cand->rank_x2,best_cand->applied_rule.tgt_rule_rank};
-		if (duplicate_set.find(key) == duplicate_set.end())
-		{
-			add_neighbours_to_pq(best_cand,candpq_merge);
-			duplicate_set.insert(key);
-		}
+        add_neighbours_to_pq(best_cand,candpq_merge,duplicate_set);
 		span2cands.at(beg).at(span).add(best_cand,para.BEAM_SIZE);
 		added_cand_num++;
 	}
@@ -569,8 +560,14 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
  3. 出口参数: 更新后的candpq_merge
  4. 算法简介: 顺序以及逆序合并两个子候选
 ************************************************************************************* */
-void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &candpq_merge)
+void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &candpq_merge,set<vector<int> > &duplicate_set)
 {
+    //key包含两个变量在源端的span（用来检查规则源端是否相同），规则目标端在源端相同的所有目标端的排名（检查规则目标端是否相同）
+    //以及子候选在两个变量中的排名（检查子候选是否相同）
+    vector<int> key = {rule.span_x1.first,rule.span_x1.second,rule.span_x2.first,rule.span_x2.second,rule.tgt_rule_rank,rank_x1,rank_x2};
+    if (duplicate_set.find(key) != duplicate_set.end())
+        return;
+    duplicate_set.insert(key);
 	if (rule.tgt_rule->rule_type >= 2)                                                                      //该规则有两个非终结符
 	{
 		if (span2cands.at(rule.span_x1.first).at(rule.span_x1.second).size() <= rank_x1 ||
@@ -677,22 +674,22 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
  4. 算法简介: a) 取比当前候选左子候选差一名的候选与当前候选的右子候选合并
               b) 取比当前候选右子候选差一名的候选与当前候选的左子候选合并
 ************************************************************************************* */
-void SentenceTranslator::add_neighbours_to_pq(Cand* cur_cand, Candpq &candpq_merge)
+void SentenceTranslator::add_neighbours_to_pq(Cand* cur_cand, Candpq &candpq_merge,set<vector<int> > &duplicate_set)
 {
 	if (cur_cand->rank_x2 != -1)                                                //如果生成当前候选的规则包括两个非终结符
 	{
 		int rank_x1 = cur_cand->rank_x1 + 1;
 		int rank_x2 = cur_cand->rank_x2;
-		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
+		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge,duplicate_set);
 
 		rank_x1 = cur_cand->rank_x1;
 		rank_x2 = cur_cand->rank_x2 + 1;
-		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
+		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge,duplicate_set);
 	}
 	else 																		//如果生成当前候选的规则包括一个非终结符
 	{
 		int rank_x1 = cur_cand->rank_x1 + 1;
 		int rank_x2 = cur_cand->rank_x2;
-		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge);
+		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge,duplicate_set);
 	}
 }
