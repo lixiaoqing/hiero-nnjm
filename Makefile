@@ -19,4 +19,4 @@ myutils.o: myutils.h stdafx.h
 ruletable2bin.o:myutils.h stdafx.h
 
 clean:
-	rm *.o lm/*.o util/*.o util/double-conversion/*.o
+	rm *.o

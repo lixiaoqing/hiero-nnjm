@@ -37,7 +37,11 @@ void CandBeam::add(Cand *&cand_ptr,int beam_size)
 	}
 	if (data.size() >= beam_size)
 	{
-		swap(*min_element(data.begin(),data.end(),smaller),cand_ptr);
+        auto &min_cand_ptr = *min_element(data.begin(),data.end(),smaller);
+        if (cand_ptr->score > min_cand_ptr->score)
+        {
+            swap(min_cand_ptr,cand_ptr);
+        }
 		delete cand_ptr;
 		return;
 	}
