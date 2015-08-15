@@ -25,6 +25,7 @@ LanguageModel::LanguageModel(const string &lm_file, Vocab *tgt_vocab)
 	kenlm = new Model(lm_file.c_str(), conf);
 	EOS = convert_to_kenlm_id(tgt_vocab->get_id("</s>"));
 	nonterminal_wid = tgt_vocab->get_id("[X][X]");
+	unk_wid = tgt_vocab->get_id("UNK");
 	cout<<"load language model file "<<lm_file<<" over\n";
 };
 
@@ -41,7 +42,7 @@ double LanguageModel::cal_increased_lm_score(Cand* cand)
 	RuleScore<Model> rule_score(*kenlm,cand->lm_state);
 	if (cand->applied_rule.tgt_rule == NULL)            //OOV候选
 	{
-		const lm::WordIndex ken_lm_id = convert_to_kenlm_id(cand->tgt_wids.at(0));
+		const lm::WordIndex ken_lm_id = convert_to_kenlm_id(unk_wid);
 		rule_score.Terminal(ken_lm_id);
 	}
 	else
