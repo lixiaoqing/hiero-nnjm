@@ -25,7 +25,9 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 		TgtRule tgt_rule;
 		tgt_rule.word_num = tgt_rule_len;
 		tgt_rule.wids.resize(tgt_rule_len);
+        tgt_rule.tgt_to_src_idx.resize(tgt_rule_len);
 		fin.read((char*)&(tgt_rule.wids[0]),sizeof(int)*tgt_rule_len);
+		fin.read((char*)&(tgt_rule.tgt_to_src_idx[0]),sizeof(int)*tgt_rule_len);
 
 		tgt_rule.probs.resize(PROB_NUM);
 		fin.read((char*)&(tgt_rule.probs[0]),sizeof(double)*PROB_NUM);
@@ -44,9 +46,25 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 		fin.read((char*)&rule_type,sizeof(short int));
 		tgt_rule.rule_type = rule_type;
 		add_rule_to_trie(src_wids,tgt_rule);
+
+        /*
+        for (auto wid : src_wids)
+            cout<<src_vocab->get_word(wid)<<' ';
+        cout<<"||| ";
+        for (auto wid : tgt_rule.wids)
+            cout<<tgt_vocab->get_word(wid)<<' ';
+        cout<<"||| ";
+        for (auto &prob : tgt_rule.probs)
+            cout<<pow(10,prob)<<' ';
+        cout<<"||| ";
+        for (auto src_idx : tgt_rule.tgt_to_src_idx)
+            cout<<src_idx<<' ';
+        cout<<endl;
+        */
 	}
 	fin.close();
 	cout<<"load rule table file "<<rule_table_file<<" over\n";
+    cin.get();
 }
 
 vector<vector<TgtRule>* > RuleTable::find_matched_rules_for_prefixes(const vector<int> &src_wids,const size_t pos)

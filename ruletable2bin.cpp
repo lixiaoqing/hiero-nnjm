@@ -55,7 +55,6 @@ void ruletable2bin(string rule_filename)
 
 		vector<int> nonterminal_idx_en;
 		int idx_en = -1;
-		short int rule_type = 0;                     //规则类型，0和1表示包含0或1个非终结符，2和3表示正序和逆序hiero规则，4表示glue规则
 		vector <string> en_word_vec;
 		Split(en_word_vec,elements[1]);
 		en_word_vec.pop_back();
@@ -80,10 +79,6 @@ void ruletable2bin(string rule_filename)
 				en_word_id++;
 			}
 		}
-		if (nonterminal_idx_en.size() == 1)
-		{
-			rule_type = 1;
-		}
 
 		vector <string> prob_str_vec;
 		vector <double> prob_vec;
@@ -103,34 +98,67 @@ void ruletable2bin(string rule_filename)
 			prob_vec.push_back(log_prob);
 		}
 
-		if (nonterminal_idx_en.size() == 2)
-		{
-			vector <string> alignments;
-			sep = "-";
-			Split(alignments,elements[3]);
-			for (auto &align_str : alignments)
-			{
-				vector <string> pos_pair;
-				Split(pos_pair,align_str,sep);
-				int idx_en = stoi(pos_pair[1]);
-				if (idx_en == nonterminal_idx_en[0])
-				{
-					rule_type = 2;
-					break;
-				}
-				else if (idx_en == nonterminal_idx_en[1])
-				{
-					rule_type = 3;
-					break;
-				}
-			}
-		}
+		short int rule_type = (nonterminal_idx_en.size()==1?1:0);     //规则类型，0和1表示包含0或1个非终结符，2和3表示正序和逆序hiero规则，4表示glue规则
+        nonterminal_idx_en.resize(2,-1);                              //防止越界
+        bool flag = true;
+
+        vector <string> alignments;
+        Split(alignments,elements[3]);
+        vector<vector<int> > en_to_ch_idx_vec(en_id_vec.size(),vector<int>());
+        vector<int> en_to_ch_idx(en_id_vec.size(),-99);
+        sep = "-";
+        for (auto &align_str : alignments)
+        {
+            vector <string> idx_pair;
+            Split(idx_pair,align_str,sep);
+            int idx_ch = stoi(idx_pair[0]);
+            int idx_en = stoi(idx_pair[1]);
+
+            if (idx_en == nonterminal_idx_en[0])
+            {
+                en_to_ch_idx_vec.at(idx_en).push_back(-1);
+                if (flag == true)
+                {
+                    rule_type = 2;
+                    flag = false;
+                }
+            }
+            else if (idx_en == nonterminal_idx_en[1])
+            {
+                en_to_ch_idx_vec.at(idx_en).push_back(-2);
+                if (flag == true)
+                {
+                    rule_type = 3;
+                    flag = false;
+                }
+            }
+            else
+            {
+                en_to_ch_idx_vec.at(idx_en).push_back(idx_ch);
+            }
+        }
+        for (int i=0;i<en_to_ch_idx_vec.size();i++)
+        {
+            auto &ch_idx_vec = en_to_ch_idx_vec.at(i);
+            if (ch_idx_vec.empty())
+                continue;
+            if (ch_idx_vec.front() < 0)
+            {
+                en_to_ch_idx.at(i) = ch_idx_vec.front();
+            }
+            else
+            {
+                en_to_ch_idx.at(i) = (*min_element(ch_idx_vec.begin(),ch_idx_vec.end()) + *max_element(ch_idx_vec.begin(),ch_idx_vec.end()))/2;
+            }
+        }
+
 		short int ch_rule_len = ch_id_vec.size();
 		short int en_rule_len = en_id_vec.size();
 		fout.write((char*)&ch_rule_len,sizeof(short int));
 		fout.write((char*)&ch_id_vec[0],sizeof(int)*ch_rule_len);
 		fout.write((char*)&en_rule_len,sizeof(short int));
 		fout.write((char*)&en_id_vec[0],sizeof(int)*en_rule_len);
+		fout.write((char*)&en_to_ch_idx[0],sizeof(int)*en_rule_len);
 		fout.write((char*)&prob_vec[0],sizeof(double)*prob_vec.size());
 		fout.write((char*)&rule_type,sizeof(short int));
 	}

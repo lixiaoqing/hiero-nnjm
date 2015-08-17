@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include <algorithm>
+#include <numeric>
 #include <bitset>
 #include <queue>
 #include <functional>
@@ -53,6 +54,8 @@ struct Filenames
 	string tgt_vocab_file;
 	string rule_table_file;
 	string lm_file;
+	string nnjm_file;
+	string sen_embed_file;
 };
 
 struct Parameter
@@ -75,6 +78,7 @@ struct Weight
 	double len;							//译文的单词数
 	double rule_num;					//使用的规则数，不包含glue规则
 	double glue;						//对glue规则的惩罚
+	double nnjm;
 };
 
 #endif

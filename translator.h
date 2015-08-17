@@ -11,6 +11,7 @@ struct Models
 	Vocab *tgt_vocab;
 	RuleTable *ruletable;
 	LanguageModel *lm_model;
+    neuralLM *nnjm_model;
 };
 
 class SentenceTranslator
@@ -34,12 +35,16 @@ class SentenceTranslator
 		void add_neighbours_to_pq(Cand *cur_cand, Candpq &new_cands_by_mergence,set<vector<int> > &duplicate_set);
 		void dump_rules(vector<string> &applied_rules, Cand *cand);
 		string words_to_str(vector<int> wids, int drop_oov);
+        double cal_nnjm_ngram_score(Cand *cand);
+        string get_tgt_word(int wid);
+        vector<int> get_aligned_src_idx(int beg, vector<int> &tgt_to_src_idx,Cand* cand_x1, Cand* cand_x2);
 
 	private:
 		Vocab *src_vocab;
 		Vocab *tgt_vocab;
 		RuleTable *ruletable;
 		LanguageModel *lm_model;
+		neuralLM *nnjm_model;
 		Parameter para;
 		Weight feature_weight;
 
@@ -51,4 +56,12 @@ class SentenceTranslator
 		size_t src_sen_len;
 		int src_nt_id;                                  //源端非终结符的id
 		int tgt_nt_id; 									//目标端非终结符的id
+
+        int src_bos_id;                                 //源端句首符号"<src>"的id
+        int src_eos_id;                                 //源端句尾符号"</src>"的id
+        int tgt_bos_id;                                 //目标端端句首符号"<tgt>"的id
+        int src_window_size;
+        int tgt_window_size;
+        vector<int> src_nnjm_ids;                       //源端每个单词的nnjm id
+        vector<vector<int> > src_context;               //源端每个单词的上下文
 };
