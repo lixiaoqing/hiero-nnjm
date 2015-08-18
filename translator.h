@@ -32,6 +32,7 @@ class SentenceTranslator
 		void fill_span2rules_with_matched_rules(vector<TgtRule> &matched_rules,vector<int> &src_ids,pair<int,int> span,pair<int,int> span_src_x1,pair<int,int> span_src_x2);
 		void generate_kbest_for_span(const size_t beg,const size_t span);
 		void generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &new_cands_by_mergence,set<vector<int> > &duplicate_set);
+		void update_cand_members(Cand* cand, Rule &rule, int rank_x1, int rank_x2, Cand* cand_x1, Cand* cand_x2);
 		void add_neighbours_to_pq(Cand *cur_cand, Candpq &new_cands_by_mergence,set<vector<int> > &duplicate_set);
 		void dump_rules(vector<string> &applied_rules, Cand *cand);
 		string words_to_str(vector<int> wids, int drop_oov);
@@ -56,10 +57,11 @@ class SentenceTranslator
 		size_t src_sen_len;
 		int src_nt_id;                                  //源端非终结符的id
 		int tgt_nt_id; 									//目标端非终结符的id
+        Cand* null_cand;
 
-        int src_bos_id;                                 //源端句首符号"<src>"的id
-        int src_eos_id;                                 //源端句尾符号"</src>"的id
-        int tgt_bos_id;                                 //目标端端句首符号"<tgt>"的id
+        int src_bos_nnjm_id;                            //源端句首符号"<src>"的id
+        int src_eos_nnjm_id;                            //源端句尾符号"</src>"的id
+        int tgt_bos_nnjm_id;                            //目标端端句首符号"<tgt>"的id
         int src_window_size;
         int tgt_window_size;
         vector<int> src_nnjm_ids;                       //源端每个单词的nnjm id

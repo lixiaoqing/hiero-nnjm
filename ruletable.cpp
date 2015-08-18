@@ -45,6 +45,14 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 		short int rule_type;
 		fin.read((char*)&rule_type,sizeof(short int));
 		tgt_rule.rule_type = rule_type;
+        if (rule_type == 1)
+        {
+            tgt_rule.word_num -= 1;
+        }
+        else if (rule_type >= 2)
+        {
+            tgt_rule.word_num -= 2;
+        }
 		add_rule_to_trie(src_wids,tgt_rule);
 
         /*
