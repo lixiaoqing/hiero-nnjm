@@ -743,11 +743,12 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
         cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + cand_x2->trans_probs.at(i) + rule.tgt_rule->probs.at(i));
     }
     cand->nnjm_prob = cal_nnjm_ngram_score(cand);
+    double increased_nnjm_prob = cand->nnjm_prob - cand_x1->nnjm_prob - cand_x2->nnjm_prob;
     double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
     cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;
     cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
         + feature_weight.rule_num*1 + feature_weight.glue*glue_num + feature_weight.len*rule.tgt_rule->word_num
-        + feature_weight.nnjm*cand->nnjm_prob;
+        + feature_weight.nnjm*increased_nnjm_prob;
 }
 
 /**************************************************************************************
