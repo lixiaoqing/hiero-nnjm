@@ -55,7 +55,6 @@ struct Filenames
 	string rule_table_file;
 	string lm_file;
 	string nnjm_file;
-	string sen_embed_file;
 };
 
 struct Parameter

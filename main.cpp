@@ -53,11 +53,6 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 			getline(fin,line);
 			fns.nnjm_file = line;
 		}
-		else if (line == "[sen-embed-file]")
-		{
-			getline(fin,line);
-			fns.sen_embed_file = line;
-		}
 		else if (line == "[BEAM-SIZE]")
 		{
 			getline(fin,line);
@@ -269,7 +264,7 @@ int main( int argc, char *argv[])
 	RuleTable *ruletable = new RuleTable(para.RULE_NUM_LIMIT,weight,fns.rule_table_file,src_vocab,tgt_vocab);
 	LanguageModel *lm_model = new LanguageModel(fns.lm_file,tgt_vocab);
     neuralLM* nnjm_model = new neuralLM();
-    nnjm_model->read(fns.nnjm_file, fns.sen_embed_file);
+    nnjm_model->read(fns.nnjm_file);
 
 
 	b = clock();
