@@ -175,15 +175,27 @@ void ruletable2bin(string rule_filename)
                 prob_vec.push_back(log_prob);
             }
 
-            short int rule_type = (nonterminal_idx_en.size()==1?1:0);     //规则类型，0和1表示包含0或1个非终结符，2和3表示正序和逆序hiero规则，4表示glue规则
-            nonterminal_idx_en.resize(2,-1);                              //防止越界
-            bool flag = true;
+            short int rule_type;                        //规则类型，0和1表示包含0或1个非终结符，2和3表示正序和逆序hiero规则，4表示glue规则
+            if (nonterminal_idx_en.empty())
+            {
+                rule_type = 0;
+            }
+            else if (nonterminal_idx_en.size() == 1)
+            {
+                rule_type = 1;
+            }
+            else
+            {
+                rule_type = 2;
+            }
 
             vector <string> alignments;
             Split(alignments,elements[3]);
             vector<vector<int> > en_to_ch_idx_vec(en_id_vec.size(),vector<int>());
             vector<int> en_to_ch_idx(en_id_vec.size(),-99);
             sep = "-";
+            nonterminal_idx_en.resize(2,-1);            //防止越界
+            bool flag = true;
             for (auto &align_str : alignments)
             {
                 vector <string> idx_pair;
@@ -194,11 +206,7 @@ void ruletable2bin(string rule_filename)
                 if (idx_en == nonterminal_idx_en[0])
                 {
                     en_to_ch_idx_vec.at(idx_en).push_back(-1);
-                    if (flag == true)
-                    {
-                        rule_type = 2;
-                        flag = false;
-                    }
+                    flag = false;
                 }
                 else if (idx_en == nonterminal_idx_en[1])
                 {

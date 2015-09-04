@@ -649,11 +649,13 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	Candpq candpq_merge;			    //优先级队列,用来临时存储通过合并得到的候选
 	set<vector<int> > duplicate_set;	//用来记录候选是否已经被加入candpq_merge中
 
+    cout<<"generate kbest for span "<<beg<<' '<<span<<endl;
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : span2rules.at(beg).at(span))
 	{
 		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge,duplicate_set);
 	}
+    cout<<"generate initial cands with rules over\n";
 
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入span2cands中,并将该候选的邻居加入candpq_merge中
 	int added_cand_num = 0;
@@ -674,6 +676,8 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 		span2cands.at(beg).at(span).add(best_cand,para.BEAM_SIZE);
 		added_cand_num++;
 	}
+    cout<<"cube prunning over\n";
+
 	while(!candpq_merge.empty())
 	{
 		delete candpq_merge.top();
@@ -692,18 +696,26 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
     //key包含两个变量在源端的span（用来检查规则源端是否相同），规则目标端在源端相同的所有目标端的排名（检查规则目标端是否相同）
     //以及子候选在两个变量中的排名（检查子候选是否相同）
     vector<int> key = {rule.span_x1.first,rule.span_x1.second,rule.span_x2.first,rule.span_x2.second,rule.tgt_rule_rank,rank_x1,rank_x2};
+    //cout<<rule.tgt_rule->rule_type<<' '<<rule.span_x1.first<<' '<<rule.span_x1.second<<' '<<rule.span_x2.first<<' '<<rule.span_x2.second<<' '<<rule.tgt_rule_rank<<' '<<rank_x1<<' '<<rank_x2<<endl;
     if (duplicate_set.insert(key).second == false)
         return;
 
+    //for (int e : rule.src_ids)
+        //cout<<src_vocab->get_word(e)<<' ';
+    //cout<<endl;
     if (span2cands.at(rule.span_x1.first).at(rule.span_x1.second).size() <= rank_x1)
         return;
+    //cout<<"check x1\n";
     if (rule.tgt_rule->rule_type >=2 && span2cands.at(rule.span_x2.first).at(rule.span_x2.second).size() <= rank_x2)
         return;
+    //cout<<"check x2\n";
 
     Cand *cand_x1 = span2cands.at(rule.span_x1.first).at(rule.span_x1.second).at(rank_x1);
     Cand *cand_x2 = rule.tgt_rule->rule_type >= 2 ? span2cands.at(rule.span_x2.first).at(rule.span_x2.second).at(rank_x2) : null_cand;
     Cand *cand = new Cand;
+    cout<<"before update cand members\n";
     update_cand_members(cand,rule,rank_x1,rank_x2,cand_x1,cand_x2);
+    cout<<"update cand members over\n";
     candpq_merge.push(cand);
 }
 
@@ -721,6 +733,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule->wids.size();
 
     cand->aligned_src_idx = get_aligned_src_idx(cand->span.first,rule.tgt_rule->tgt_to_src_idx,cand_x1,cand_x2);
+    cout<<"get aligned src idx over\n";
 
     int nt_idx = 1; 							//表示第几个非终结符
     for (auto tgt_wid : rule.tgt_rule->wids)
@@ -743,6 +756,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
         cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + cand_x2->trans_probs.at(i) + rule.tgt_rule->probs.at(i));
     }
     cand->nnjm_prob = cal_nnjm_ngram_score(cand);
+    cout<<"cal nnjm ngram score over\n";
     double increased_nnjm_prob = cand->nnjm_prob - cand_x1->nnjm_prob - cand_x2->nnjm_prob;
     double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
     cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;

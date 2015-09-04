@@ -67,7 +67,8 @@ void RuleTable::load_rule_table(const string &rule_table_file)
         cout<<"||| ";
         for (auto src_idx : tgt_rule.tgt_to_src_idx)
             cout<<src_idx<<' ';
-        cout<<endl;
+        cout<<"||| ";
+        cout<<tgt_rule.rule_type<<endl;
         */
 	}
 	fin.close();
