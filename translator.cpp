@@ -195,18 +195,22 @@ double SentenceTranslator::cal_nnjm_ngram_score(Cand *cand)
 {
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
     {
+        cout<<tgt_idx - tgt_window_size<<endl;
         if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
             continue;
         if (tgt_idx - tgt_window_size < 0 && cand->span.second != src_sen_len - 1)
             continue;
 
         vector<int> history = src_context.at(cand->aligned_src_idx.at(tgt_idx));
-        for (int i = tgt_idx - tgt_window_size; i<=tgt_idx; i++)
+        for (int i = tgt_idx - tgt_window_size; i<tgt_idx; i++)
         {
             int nnjm_id = i<0 ? tgt_bos_nnjm_id : nnjm_model->lookup_input_word(get_tgt_word(cand->tgt_wids.at(i)));
             history.push_back(nnjm_id);
         }
+        history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
+        cout<<"before lookup ngram"<<endl;
         cand->nnjm_ngram_score.at(tgt_idx) = nnjm_model->lookup_ngram(history);
+        cout<<"after lookup ngram"<<endl;
     }
     return accumulate(cand->nnjm_ngram_score.begin(),cand->nnjm_ngram_score.end(),0.0);
 }
@@ -755,6 +759,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     {
         cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + cand_x2->trans_probs.at(i) + rule.tgt_rule->probs.at(i));
     }
+    cout<<"before cal nnjm ngram score"<<endl;
     cand->nnjm_prob = cal_nnjm_ngram_score(cand);
     cout<<"cal nnjm ngram score over"<<endl;
     double increased_nnjm_prob = cand->nnjm_prob - cand_x1->nnjm_prob - cand_x2->nnjm_prob;
