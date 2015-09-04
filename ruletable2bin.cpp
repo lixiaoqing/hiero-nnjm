@@ -265,12 +265,14 @@ void ruletable2bin(string rule_filename)
 	vector<int> ch_id_vec = {ch_vocab["[X][X]"],ch_vocab["[X][X]"]};
 	short int en_rule_len = 2;
 	vector<int> en_id_vec = {en_vocab["[X][X]"],en_vocab["[X][X]"]};
+    vector<int> en_to_ch_idx = {0,1};
 	vector<double> prob_vec = {0,0,0,0};
 	short int rule_type = 4;
 	fout.write((char*)&ch_rule_len,sizeof(short int));
 	fout.write((char*)&ch_id_vec[0],sizeof(int)*ch_rule_len);
 	fout.write((char*)&en_rule_len,sizeof(short int));
 	fout.write((char*)&en_id_vec[0],sizeof(int)*en_rule_len);
+    fout.write((char*)&en_to_ch_idx[0],sizeof(int)*en_rule_len);
 	fout.write((char*)&prob_vec[0],sizeof(double)*prob_vec.size());
 	fout.write((char*)&rule_type,sizeof(short int));
 	fout.close();

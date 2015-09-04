@@ -713,9 +713,9 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
     Cand *cand_x1 = span2cands.at(rule.span_x1.first).at(rule.span_x1.second).at(rank_x1);
     Cand *cand_x2 = rule.tgt_rule->rule_type >= 2 ? span2cands.at(rule.span_x2.first).at(rule.span_x2.second).at(rank_x2) : null_cand;
     Cand *cand = new Cand;
-    cout<<"before update cand members\n";
+    cout<<"before update cand members"<<endl;
     update_cand_members(cand,rule,rank_x1,rank_x2,cand_x1,cand_x2);
-    cout<<"update cand members over\n";
+    cout<<"update cand members over"<<endl;
     candpq_merge.push(cand);
 }
 
@@ -733,7 +733,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule->wids.size();
 
     cand->aligned_src_idx = get_aligned_src_idx(cand->span.first,rule.tgt_rule->tgt_to_src_idx,cand_x1,cand_x2);
-    cout<<"get aligned src idx over\n";
+    cout<<"get aligned src idx over"<<endl;
 
     int nt_idx = 1; 							//表示第几个非终结符
     for (auto tgt_wid : rule.tgt_rule->wids)
@@ -756,7 +756,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
         cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + cand_x2->trans_probs.at(i) + rule.tgt_rule->probs.at(i));
     }
     cand->nnjm_prob = cal_nnjm_ngram_score(cand);
-    cout<<"cal nnjm ngram score over\n";
+    cout<<"cal nnjm ngram score over"<<endl;
     double increased_nnjm_prob = cand->nnjm_prob - cand_x1->nnjm_prob - cand_x2->nnjm_prob;
     double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
     cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;
