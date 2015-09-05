@@ -17,7 +17,7 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
     src_eos_nnjm_id = nnjm_model->lookup_input_word("</src>");
     tgt_bos_nnjm_id = nnjm_model->lookup_input_word("<tgt>");
     src_window_size = 5;
-    tgt_window_size = 4;
+    tgt_window_size = 3;
 
     src_nnjm_ids.resize(src_window_size,src_bos_nnjm_id);
 	stringstream ss(input_sen);
@@ -32,7 +32,7 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
 
     for (int i=0; i<src_sen_len; i++)
     {
-        vector<int> cur_context(src_nnjm_ids.begin()+i,src_nnjm_ids.begin()+i+2*src_window_size+2);     //源端窗口长度为2*src_window_size+1
+        vector<int> cur_context(src_nnjm_ids.begin()+i,src_nnjm_ids.begin()+i+2*src_window_size+1);     //源端窗口长度为2*src_window_size+1
         src_context.push_back(cur_context);
     }
 
@@ -202,12 +202,15 @@ double SentenceTranslator::cal_nnjm_ngram_score(Cand *cand)
             continue;
 
         vector<int> history = src_context.at(cand->aligned_src_idx.at(tgt_idx));
+        cout<<"history size "<<history.size()<<endl;
         for (int i = tgt_idx - tgt_window_size; i<tgt_idx; i++)
         {
             int nnjm_id = i<0 ? tgt_bos_nnjm_id : nnjm_model->lookup_input_word(get_tgt_word(cand->tgt_wids.at(i)));
             history.push_back(nnjm_id);
         }
         history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
+        cout<<get_tgt_word(cand->tgt_wids.at(tgt_idx))<<' '<<nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx)))<<endl;
+        cout<<"history size "<<history.size()<<endl;
         cout<<"before lookup ngram"<<endl;
         cand->nnjm_ngram_score.at(tgt_idx) = nnjm_model->lookup_ngram(history);
         cout<<"after lookup ngram"<<endl;
