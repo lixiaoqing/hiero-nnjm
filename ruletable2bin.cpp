@@ -132,7 +132,7 @@ void ruletable2bin(string rule_filename)
             {
                 TrimLine(e);
             }
-            vector <string> ch_word_vec;
+            vector <string> ch_word_vec;                        //记录规则源端词号
             Split(ch_word_vec,elements[0]);
             ch_word_vec.pop_back();
             vector <int> ch_id_vec;
@@ -141,9 +141,9 @@ void ruletable2bin(string rule_filename)
                 ch_id_vec.push_back(ch_vocab[ch_word]);
             }
 
-            vector<int> nonterminal_idx_en;
+            vector<int> nonterminal_idx_en;                     //记录目标端非终结符位置
             int idx_en = -1;
-            vector <string> en_word_vec;
+            vector <string> en_word_vec;                        //记录规则目标端词号
             Split(en_word_vec,elements[1]);
             en_word_vec.pop_back();
             vector <int> en_id_vec;
@@ -158,7 +158,7 @@ void ruletable2bin(string rule_filename)
             }
 
             vector <string> prob_str_vec;
-            vector <double> prob_vec;
+            vector <double> prob_vec;               //翻译概率
             Split(prob_str_vec,elements[2]);
             for (const auto &prob_str : prob_str_vec)
             {
@@ -191,8 +191,8 @@ void ruletable2bin(string rule_filename)
 
             vector <string> alignments;
             Split(alignments,elements[3]);
-            vector<vector<int> > en_to_ch_idx_vec(en_id_vec.size(),vector<int>());
-            vector<int> en_to_ch_idx(en_id_vec.size(),-99);
+            vector<vector<int> > en_to_ch_idx_vec(en_id_vec.size(),vector<int>());  //记录每个目标端单词对应的源端单词(可能有多个)位置
+            vector<int> en_to_ch_idx(en_id_vec.size(),-1);                          //记录每个目标端单词对应的源端单词(取平均)位置, -1表示对空
             sep = "-";
             nonterminal_idx_en.resize(2,-1);            //防止越界
             bool flag = true;
@@ -205,36 +205,21 @@ void ruletable2bin(string rule_filename)
 
                 if (idx_en == nonterminal_idx_en[0])
                 {
-                    en_to_ch_idx_vec.at(idx_en).push_back(-1);
                     flag = false;
                 }
-                else if (idx_en == nonterminal_idx_en[1])
+                else if (idx_en == nonterminal_idx_en[1] && flag == true)
                 {
-                    en_to_ch_idx_vec.at(idx_en).push_back(-2);
-                    if (flag == true)
-                    {
-                        rule_type = 3;
-                        flag = false;
-                    }
+                    rule_type = 3;
+                    flag = false;
                 }
-                else
-                {
-                    en_to_ch_idx_vec.at(idx_en).push_back(idx_ch);
-                }
+                en_to_ch_idx_vec.at(idx_en).push_back(idx_ch);
             }
             for (int j=0;j<en_to_ch_idx_vec.size();j++)
             {
                 auto &ch_idx_vec = en_to_ch_idx_vec.at(j);
                 if (ch_idx_vec.empty())
                     continue;
-                if (ch_idx_vec.front() < 0)
-                {
-                    en_to_ch_idx.at(j) = ch_idx_vec.front();
-                }
-                else
-                {
-                    en_to_ch_idx.at(j) = (*min_element(ch_idx_vec.begin(),ch_idx_vec.end()) + *max_element(ch_idx_vec.begin(),ch_idx_vec.end()))/2;
-                }
+                en_to_ch_idx.at(j) = (*min_element(ch_idx_vec.begin(),ch_idx_vec.end()) + *max_element(ch_idx_vec.begin(),ch_idx_vec.end()))/2;
             }
 
             ch_id_vec_list.at(i) = ch_id_vec;
@@ -265,7 +250,7 @@ void ruletable2bin(string rule_filename)
 	vector<int> ch_id_vec = {ch_vocab["[X][X]"],ch_vocab["[X][X]"]};
 	short int en_rule_len = 2;
 	vector<int> en_id_vec = {en_vocab["[X][X]"],en_vocab["[X][X]"]};
-    vector<int> en_to_ch_idx = {-1,-2};
+    vector<int> en_to_ch_idx = {0,1};
 	vector<double> prob_vec = {0,0,0,0};
 	short int rule_type = 4;
 	fout.write((char*)&ch_rule_len,sizeof(short int));

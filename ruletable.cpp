@@ -55,6 +55,7 @@ void RuleTable::load_rule_table(const string &rule_table_file)
         }
 		add_rule_to_trie(src_wids,tgt_rule);
 
+        /*
         for (auto wid : src_wids)
             cout<<src_vocab->get_word(wid)<<' ';
         cout<<"||| ";
@@ -68,7 +69,6 @@ void RuleTable::load_rule_table(const string &rule_table_file)
             cout<<src_idx<<' ';
         cout<<"||| ";
         cout<<tgt_rule.rule_type<<endl;
-        /*
         */
 	}
 	fin.close();

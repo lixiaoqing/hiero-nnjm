@@ -114,7 +114,7 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
                 cand->applied_rule.span = make_pair(beg,span);
 				cand->applied_rule.tgt_rule = &tgt_rule;
 				cand->lm_prob = lm_model->cal_increased_lm_score(cand);
-                cand->aligned_src_idx = get_aligned_src_idx(beg,tgt_rule.tgt_to_src_idx,NULL,NULL);
+                cand->aligned_src_idx = get_aligned_src_idx(beg,tgt_rule,NULL,NULL);
                 cand->span = make_pair(beg,span);
                 cand->nnjm_ngram_score.resize(cand->tgt_wids.size(),0.0);
                 cand->nnjm_prob = cal_nnjm_score(cand);
@@ -137,32 +137,72 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
               b) 对于对空的目标端单词，使用临近的目标端单词对应的源端位置
               c) 对于目标端的非终结符，使用子候选的目标端单词到源端位置的映射
 ************************************************************************************* */
-vector<int> SentenceTranslator::get_aligned_src_idx(int beg, vector<int> &tgt_to_src_idx, Cand* cand_x1, Cand* cand_x2)
+vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, Cand* cand_x1, Cand* cand_x2)
 {
-    cout<<"getting aligned src idx"<<endl;
-    vector<int> aligned_src_idx;
-    int offset = 0;
-    for (int src_idx : tgt_to_src_idx)
+    int nt1_idx = -1;
+    int nt2_idx = -1;
+    int offset1 = 0;
+    int offset2 = 0;
+    int nt_num = 1;
+    for (int i=0; i<tgt_rule.tgt_to_src_idx.size(); i++)                  //记录非终结符位置以及每个非终结符包含的单词数
     {
-        if (src_idx == -1)                          //第一个非终结符
+        int src_idx = tgt_rule.tgt_to_src_idx.at(i);
+        int tgt_wid = tgt_rule.wids.at(i);
+        if (tgt_wid == tgt_nt_id && nt_num == 1)                          //第一个非终结符
+        {
+            nt1_idx = src_idx;
+            offset1 += cand_x1->span.second;
+            nt_num++;
+        }
+        else if (tgt_wid == tgt_nt_id && nt_num == 2)                     //第二个非终结符
+        {
+            nt2_idx = src_idx;
+            offset2 += cand_x2->span.second;
+        }
+    }
+
+    vector<int> tgt_to_src_idx_with_offset = tgt_rule.tgt_to_src_idx;
+    for (int i=0; i<tgt_rule.tgt_to_src_idx.size(); i++)                  //处理偏置量
+    {
+        int src_idx = tgt_rule.tgt_to_src_idx.at(i);
+        int tgt_wid = tgt_rule.wids.at(i);
+        if (tgt_wid == tgt_nt_id || src_idx == -1)
+            continue;
+        if (nt1_idx != -1 && src_idx > nt1_idx)
+        {
+            tgt_to_src_idx_with_offset.at(i) += offset1;
+        }
+        if (nt2_idx != -1 && src_idx > nt2_idx)
+        {
+            tgt_to_src_idx_with_offset.at(i) += offset2;
+        }
+    }
+
+    vector<int> aligned_src_idx;
+    nt_num = 1;
+    for (int i=0; i<tgt_to_src_idx_with_offset.size(); i++)               //将规则中的相对位置转换成句子中的绝对位置
+    {
+        int src_idx = tgt_to_src_idx_with_offset.at(i);
+        int tgt_wid = tgt_rule.wids.at(i);
+        if (tgt_wid == tgt_nt_id && nt_num == 1)                          //第一个非终结符
         {
             aligned_src_idx.insert(aligned_src_idx.end(),cand_x1->aligned_src_idx.begin(),cand_x1->aligned_src_idx.end());
-            offset += cand_x1->aligned_src_idx.size() - 1;
+            nt_num++;
         }
-        else if (src_idx == -2)                     //第二个非终结符
+        else if (tgt_wid == tgt_nt_id && nt_num == 2)                     //第二个非终结符
         {
             aligned_src_idx.insert(aligned_src_idx.end(),cand_x2->aligned_src_idx.begin(),cand_x2->aligned_src_idx.end());
-            offset += cand_x2->aligned_src_idx.size() - 1;
         }
-        else if (src_idx == -99)                    //对空的单词
+        else if (src_idx == -1)
         {
             aligned_src_idx.push_back(-1);
         }
         else
         {
-            aligned_src_idx.push_back(src_idx+beg+offset);
+            aligned_src_idx.push_back(beg+src_idx);
         }
     }
+
     for (int i=0;i<aligned_src_idx.size();i++)      //处理对空的单词
     {
         if (aligned_src_idx.at(i) == -1)
@@ -181,14 +221,11 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, vector<int> &tgt_to
 				}
 			}
         }
-        if (aligned_src_idx.at(i) < 0 || aligned_src_idx.at(i) >= src_sen_len)
-            cout<<"bad aligned src idx "<<aligned_src_idx.at(i)<<' '<<src_sen_len<<endl;
         if (aligned_src_idx.at(i) == -1)  //TODO  impossible
         {
             aligned_src_idx.at(i) = src_sen_len/2;
         }
     }
-    cout<<"getting aligned src idx over"<<endl;
     return aligned_src_idx;
 }
 
@@ -200,7 +237,6 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, vector<int> &tgt_to
 ************************************************************************************* */
 double SentenceTranslator::cal_nnjm_score(Cand *cand)
 {
-    cout<<"cal nnjm score"<<endl;
     assert(cand->nnjm_ngram_score.size() == cand->tgt_wids.size());
     assert(cand->aligned_src_idx.size() == cand->tgt_wids.size());
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
@@ -221,7 +257,6 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
         history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
         cand->nnjm_ngram_score.at(tgt_idx) = nnjm_model->lookup_ngram(history);
     }
-    cout<<"cal over"<<endl;
     return accumulate(cand->nnjm_ngram_score.begin(),cand->nnjm_ngram_score.end(),0.0);
 }
 
@@ -661,6 +696,7 @@ string SentenceTranslator::translate_sentence()
 ************************************************************************************* */
 void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t span)
 {
+    cout<<"translating span "<<beg<<' '<<span<<endl;
 	Candpq candpq_merge;			    //优先级队列,用来临时存储通过合并得到的候选
 	set<vector<int> > duplicate_set;	//用来记录候选是否已经被加入candpq_merge中
 
@@ -669,7 +705,6 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	{
 		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge,duplicate_set);
 	}
-    cout<<"generate init cand over"<<endl;
 
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入span2cands中,并将该候选的邻居加入candpq_merge中
 	int added_cand_num = 0;
@@ -685,13 +720,11 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 			best_cand->lm_prob += increased_lm_prob;
 			best_cand->score += feature_weight.lm*increased_lm_prob;
 		}
-        cout<<candpq_merge.size()<<endl;
 		
         add_neighbours_to_pq(best_cand,candpq_merge,duplicate_set);
 		span2cands.at(beg).at(span).add(best_cand,para.BEAM_SIZE);
 		added_cand_num++;
 	}
-    cout<<"cube prunning over"<<endl;
 
 	while(!candpq_merge.empty())
 	{
@@ -708,20 +741,9 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 ************************************************************************************* */
 void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int rank_x1,int rank_x2,Candpq &candpq_merge,set<vector<int> > &duplicate_set)
 {
-    cout<<"generating cand"<<endl;
     //key包含两个变量在源端的span（用来检查规则源端是否相同），规则目标端在源端相同的所有目标端的排名（检查规则目标端是否相同）
     //以及子候选在两个变量中的排名（检查子候选是否相同）
-    //vector<int> key = {rule.span_x1.first,rule.span_x1.second,rule.span_x2.first,rule.span_x2.second,rule.tgt_rule_rank,rank_x1,rank_x2};
-    vector<int> key;
-    key.push_back(rule.span_x1.first);
-    key.push_back(rule.span_x1.second);
-    key.push_back(rule.span_x2.first);
-    key.push_back(rule.span_x2.second);
-    key.push_back(rule.tgt_rule_rank);
-    key.push_back(rank_x1);
-    key.push_back(rank_x2);
-    /*
-    */
+    vector<int> key = {rule.span_x1.first,rule.span_x1.second,rule.span_x2.first,rule.span_x2.second,rule.tgt_rule_rank,rank_x1,rank_x2};
     if (duplicate_set.insert(key).second == false)
         return;
 
@@ -735,12 +757,10 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
     Cand *cand = new Cand;
     update_cand_members(cand,rule,rank_x1,rank_x2,cand_x1,cand_x2);
     candpq_merge.push(cand);
-    cout<<"generating cand over"<<endl;
 }
 
 void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1, int rank_x2, Cand* cand_x1, Cand* cand_x2)
 {
-    cout<<"updating cand members"<<endl;
     cand->span = rule.span;
     cand->applied_rule = rule;
     int glue_num = rule.tgt_rule->rule_type == 4 ? 1 : 0;
@@ -752,32 +772,17 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     cand->child_x2 = rule.tgt_rule->rule_type >= 2 ? cand_x2 : NULL;
     cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule->wids.size();
 
-    cand->aligned_src_idx = get_aligned_src_idx(cand->span.first,rule.tgt_rule->tgt_to_src_idx,cand_x1,cand_x2);
-    cout<<"rule size "<<rule.tgt_rule->tgt_to_src_idx.size()<<endl;
-    cout<<"cand x1 size "<<cand_x1->tgt_wids.size()<<endl;
-    cout<<"cand x1 aligned src idx size "<<cand_x1->aligned_src_idx.size()<<endl;
-    cout<<"cand x2 size "<<cand_x2->tgt_wids.size()<<endl;
-    cout<<"cand x2 aligned src idx size "<<cand_x2->aligned_src_idx.size()<<endl;
-    cout<<"aligned src idx size "<<cand->aligned_src_idx.size()<<endl;
-    {
-        cout<<"rule type "<<rule.tgt_rule->rule_type<<endl;
-        for (auto e : rule.src_ids)
-            cout<<e<<' ';
-        cout<<endl;
-        for (auto e : rule.tgt_rule->tgt_to_src_idx)
-            cout<<e<<' ';
-        cout<<endl;
-    }
+    cand->aligned_src_idx = get_aligned_src_idx(cand->span.first,*(rule.tgt_rule),cand_x1,cand_x2);
 
-    int nt_idx = 1; 							//表示第几个非终结符
+    int nt_num = 1; 							//表示第几个非终结符
     for (auto tgt_wid : rule.tgt_rule->wids)
     {
         if (tgt_wid == tgt_nt_id)
         {
-            Cand* sub_cand = nt_idx == 1 ? cand_x1 : cand_x2;
+            Cand* sub_cand = nt_num == 1 ? cand_x1 : cand_x2;
             cand->tgt_wids.insert(cand->tgt_wids.end(),sub_cand->tgt_wids.begin(),sub_cand->tgt_wids.end());
             cand->nnjm_ngram_score.insert(cand->nnjm_ngram_score.end(),sub_cand->nnjm_ngram_score.begin(),sub_cand->nnjm_ngram_score.end());
-            nt_idx++;
+            nt_num++;
         }
         else
         {
@@ -796,7 +801,6 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     cand->score = cand_x1->score + cand_x2->score + rule.tgt_rule->score + feature_weight.lm*increased_lm_prob
         + feature_weight.rule_num*1 + feature_weight.glue*glue_num + feature_weight.len*rule.tgt_rule->word_num
         + feature_weight.nnjm*increased_nnjm_prob;
-    cout<<"update over"<<endl;
 }
 
 /**************************************************************************************
@@ -808,7 +812,6 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
 ************************************************************************************* */
 void SentenceTranslator::add_neighbours_to_pq(Cand* cur_cand, Candpq &candpq_merge,set<vector<int> > &duplicate_set)
 {
-    cout<<"adding neighbours"<<endl;
 	if (cur_cand->rank_x2 != -1)                                                //如果生成当前候选的规则包括两个非终结符
 	{
 		int rank_x1 = cur_cand->rank_x1 + 1;

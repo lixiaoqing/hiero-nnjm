@@ -1,12 +1,2 @@
-1. convert rule table to binary format                                							  checked
-2. load rule table to memory 																	  checked
-3. generate translation hypothesis for a span with normal rule,including
-   3.1 generate all possible patterns for a source span 										  checked
-   3.2 match each pattern in rule table 														  checked
-   3.3 generate translation hypothesis according to the target side of each matched pattern       checked
-
-NEW
-find hiero rules for each span before decoding                                                    checked
-prevent duplicate expanding during cube prunning 												  checked
-check boundary index for each rule pattern 														  checked
-calculate log prob when converting rule table to bin 											  checked
+1. check whether aligned src word is reasonable
+2. use cache to stored consulted nnjm score

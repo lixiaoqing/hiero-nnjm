@@ -38,7 +38,7 @@ class SentenceTranslator
 		string words_to_str(vector<int> wids, int drop_oov);
         double cal_nnjm_score(Cand *cand);
         string get_tgt_word(int wid);
-        vector<int> get_aligned_src_idx(int beg, vector<int> &tgt_to_src_idx,Cand* cand_x1, Cand* cand_x2);
+        vector<int> get_aligned_src_idx(int beg, TgtRule &tgt_rule,Cand* cand_x1, Cand* cand_x2);
 
 	private:
 		Vocab *src_vocab;
