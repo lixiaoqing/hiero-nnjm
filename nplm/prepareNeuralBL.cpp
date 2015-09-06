@@ -88,8 +88,8 @@ void transformAlignment(const vector<string> &alignment_string_vector, vector<in
 					distance += 1;
 					right_index = i + distance, left_index = i - distance;
 				}
-
-				if( right_index >= target_len && left_index < 0 ) { 
+				
+				if( right_index >= target_len && left_index < 0 ) {
 					alignment_index_vector[i] = 0;
 				}
 			}
@@ -148,7 +148,6 @@ void writeNgrams(const vector<vector<string> > &input_data, const vector<vector<
 			}
 
 			for (int j = 0; j < input_ngrams.size(); j++ ) {
-				file << i << " "; //sentence id for indexing the sentence embeddings
 				for (int k = 0; k < input_ngrams[j].size(); k++) {
 					file << input_ngrams[j][k] << " ";
 				}
@@ -212,7 +211,6 @@ void writeNgrams(const vector<vector<string> > &input_data, const vector<vector<
 			}
 
 			for (int j = 0; j < input_ngrams.size(); j++ ) {
-				file << i << " "; //sentence id for indexing the sentence embeddings
 				for (int k = 0; k < input_ngrams[j].size(); k++) {
 					file << input_ngrams[j][k] << " ";
 				}

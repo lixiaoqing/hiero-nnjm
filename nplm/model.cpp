@@ -120,12 +120,6 @@ namespace nplm
 		read(filename, input_words, output_words);
 	}
 
-	void model::read(const std::string &filename, const std::string &sentembed_filename)
-	{
-		read(filename);
-		input_layer.readSentEmbeddings(sentembed_filename);
-	}
-
 	void model::read(const string &filename, vector<string> &input_words, vector<string> &output_words)
 	{
 		ifstream file(filename.c_str());

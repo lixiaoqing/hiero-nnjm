@@ -266,19 +266,6 @@ namespace nplm
 			//nn.premultiply();
 		}
 
-		void read(const std::string &filename, const std::string &sentembed_filename)
-		{
-			std::vector<std::string> input_words;
-			std::vector<std::string> output_words;
-			nn.read(filename, input_words, output_words);
-			nn.input_layer.readSentEmbeddings(sentembed_filename); //load sentence embeddings
-			set_input_vocabulary(vocabulary(input_words));
-			set_output_vocabulary(vocabulary(output_words));
-			resize();
-
-		}
-
-
 		void set_cache(std::size_t cache_size)
 		{
 			this->cache_size = cache_size;

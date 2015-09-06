@@ -8,7 +8,6 @@ namespace nplm
 struct param 
 {
     std::string train_file;       //raw data file for training
-    std::string train_sent_embedding_file;       //training sentence embedding file: one embedding per sentence
     std::string validation_file;  //validation file for training
     std::string test_file;       //test file for perlexicity calcuation?
 

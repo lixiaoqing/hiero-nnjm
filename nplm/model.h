@@ -32,7 +32,6 @@ namespace nplm
 					int input_vocab_size,
 					int output_vocab_size,
 					int input_embedding_dimension,
-					Matrix<double,Dynamic,Dynamic,Eigen::RowMajor> *sent_embeddings,
 					int num_hidden,
 					int output_embedding_dimension,
 					bool share_embeddings) //model construction
@@ -40,14 +39,12 @@ namespace nplm
 				if (share_embeddings){ //input_embedding_matrix and output_embedding_matrix are the same, using only one matrix
 					input_and_output_embedding_matrix = Matrix<double,Dynamic,Dynamic,Eigen::RowMajor>();
 					input_layer.set_W(&input_and_output_embedding_matrix); //weight matrix of the input layer is the input_embedding_matrix
-					input_layer.set_sent_embeddings(sent_embeddings);
 					output_layer.set_W(&input_and_output_embedding_matrix);//weight matrix of the output layer is the output_embedding_matrix
 				}
 				else { //input_embedding_matrix is different from the output_embedding_matrix
 					input_embedding_matrix = Matrix<double,Dynamic,Dynamic,Eigen::RowMajor>();
 					output_embedding_matrix = Matrix<double,Dynamic,Dynamic,Eigen::RowMajor>();
 					input_layer.set_W(&input_embedding_matrix);
-					input_layer.set_sent_embeddings(sent_embeddings);
 					output_layer.set_W(&output_embedding_matrix);
 				}
 				resize(ngram_size,
@@ -93,7 +90,6 @@ namespace nplm
 			// a better solution is needed
 
 			void read(const std::string &filename); //read the network form a file
-			void read(const std::string &filename, const std::string &sentembed_filename); //read the network form a file
 			void read(const std::string &filename, std::vector<std::string> &input_words, std::vector<std::string> &output_words); //read network, input words and output words from a file
 			void write(const std::string &filename, const std::vector<std::string> &input_words, const std::vector<std::string> &output_words); //write the network, input words and output words to a file
 			void write(const std::string &filename);

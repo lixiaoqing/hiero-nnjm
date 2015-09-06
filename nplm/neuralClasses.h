@@ -348,8 +348,6 @@ namespace nplm
 			Matrix<double,Dynamic,Dynamic> W_running_gradient; //weight gradient used for adagrad
 			Matrix<double,Dynamic,Dynamic> W_gradient; //weight gradient
 
-			Matrix<double, Dynamic, Dynamic, Eigen::RowMajor> *sent_embeddings;
-
 			friend class model;
 
 		public:
@@ -360,10 +358,6 @@ namespace nplm
 				W = input_W;
 			}
 
-			void set_sent_embeddings(Matrix<double,Dynamic,Dynamic,Eigen::RowMajor> *embeddings) {
-				sent_embeddings = embeddings;
-			}
-
 			void resize(int rows, int cols, int context)
 			{
 				context_size = context;
@@ -371,32 +365,7 @@ namespace nplm
 				W->setZero(rows, cols);
 			}
 
-			void sent_embeddings_resize(int rows, int cols)
-			{
-				sent_embeddings->setZero(rows, cols);
-			}
-
 			void read(std::ifstream &W_file) { readMatrix(W_file, *W); }
-			void readSentEmbeddings(const std::string &sentembedfilename) 
-			{
-				std::ifstream sentembedfile(sentembedfilename.c_str());
-				if( !sentembedfile )
-				{
-					std::cerr<<"Cannot open the sentence embedding file from: "<<sentembedfilename<<std::endl;
-					exit(-1);
-				}
-				std::string firstline = "";
-				getline(sentembedfile, firstline);
-				std::istringstream buf(firstline);
-				int sent_counts = 0, sent_embed_dim = 0;
-				if( !(buf>>sent_counts>>sent_embed_dim) )
-				{
-					std::cerr<<"Sentence embedding format error for: "<<firstline<<std::endl;
-					exit(-1);
-				}
-				sent_embeddings->setZero(sent_counts, sent_embed_dim);
-				readMatrix(sentembedfile, *sent_embeddings);
-			}	
 			void write(std::ofstream &W_file) { writeMatrix(*W, W_file); }
 
 			template <typename Engine>
@@ -439,13 +408,7 @@ namespace nplm
 
 					UNCONST(DerivedOut, output, my_output);
 					my_output.setZero();
-					//first id in ngram denotes the sent_id
-					uscgemm(1.0,
-							sent_embeddings->transpose(),
-							USCMatrix<double>(sent_embeddings->rows(), input.middleRows(0, 1), Matrix<double,1,Dynamic>::Ones(input.cols())),
-							my_output.block(0, 0, embedding_dimension, input.cols()));
-
-					for (int ngram=1; ngram<context_size; ngram++)
+					for (int ngram=0; ngram<context_size; ngram++)
 					{
 						// input might be narrower than expected due to a short minibatch,
 						// so narrow output to match
@@ -485,8 +448,7 @@ namespace nplm
 					W += learning_rate * input_words.middleRows(ngram*vocab_size, vocab_size) * bProp_input.middleRows(ngram*embedding_dimension, embedding_dimension).transpose()
 					*/
 
-					//since the first id in ngram denotes the sent_id, updating the word embeddings from the second id in ngram
-					for (int ngram=1; ngram<context_size; ngram++)
+					for (int ngram=0; ngram<context_size; ngram++)
 					{
 						uscgemm(learning_rate, 
 								USCMatrix<double>(W->rows(), input_words.middleRows(ngram, 1), Matrix<double,1,Dynamic>::Ones(input_words.cols())),
@@ -506,8 +468,7 @@ namespace nplm
 					if (W_running_gradient.rows() != W->rows() || W_running_gradient.cols() != W->cols())
 						W_running_gradient.setZero(W->rows(), W->cols());
 
-					//since the first id in ngram denotes the sent_id, updating the word embeddings from the second id in ngram
-					for (int ngram=1; ngram<context_size; ngram++)
+					for (int ngram=0; ngram<context_size; ngram++)
 					{
 						uscgemm(learning_rate, 
 								USCMatrix<double>(W->rows(),input_words.middleRows(ngram, 1),Matrix<double,1,Dynamic>::Ones(input_words.cols())),
@@ -530,7 +491,7 @@ namespace nplm
 					}
 					int num_items = update_items.size();
 
-					#pragma omp parallel for
+#pragma omp parallel for
 					for (int item_id=0; item_id<num_items; item_id++)
 					{
 						int update_item = update_items[item_id];
@@ -548,8 +509,7 @@ namespace nplm
 					UNCONST(DerivedGW, gradient, my_gradient);
 					int embedding_dimension = W->cols();
 					my_gradient.setZero();
-					//since the first id in ngram denotes the sent_id, updating the word embeddings from the second id in ngram
-					for (int ngram=1; ngram<context_size; ngram++)
+					for (int ngram=0; ngram<context_size; ngram++)
 						uscgemm(1.0, 
 								USCMatrix<double>(W->rows(),input_words.middleRows(ngram, 1),Matrix<double,1,Dynamic>::Ones(input_words.cols())),
 								bProp_input.block(ngram*embedding_dimension, 0, embedding_dimension, input_words.cols()).transpose(),

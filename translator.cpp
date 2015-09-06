@@ -89,11 +89,12 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 					cand->tgt_wids.push_back(0 - src_wids.at(beg));
 					cand->trans_probs.resize(PROB_NUM,0.0);
 					cand->applied_rule.src_ids.push_back(src_wids.at(beg));
+                    cand->applied_rule.span = make_pair(beg,span);
 					cand->lm_prob = lm_model->cal_increased_lm_score(cand);
                     cand->aligned_src_idx.push_back(beg);
                     cand->span = make_pair(beg,span);
                     cand->nnjm_ngram_score.resize(1,0.0);
-                    cand->nnjm_prob = cal_nnjm_ngram_score(cand);
+                    cand->nnjm_prob = cal_nnjm_score(cand);
 					cand->score += feature_weight.rule_num*cand->rule_num + feature_weight.len*cand->tgt_word_num 
                                    + feature_weight.lm*cand->lm_prob + feature_weight.nnjm*cand->nnjm_prob;
 					span2cands.at(beg).at(span).add(cand,para.BEAM_SIZE);
@@ -109,12 +110,13 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 				cand->score = tgt_rule.score;
 				vector<int> src_ids(src_wids.begin()+beg,src_wids.begin()+beg+span+1);
 				cand->applied_rule.src_ids = src_ids;
+                cand->applied_rule.span = make_pair(beg,span);
 				cand->applied_rule.tgt_rule = &tgt_rule;
 				cand->lm_prob = lm_model->cal_increased_lm_score(cand);
                 cand->aligned_src_idx = get_aligned_src_idx(beg,tgt_rule.tgt_to_src_idx,NULL,NULL);
                 cand->span = make_pair(beg,span);
                 cand->nnjm_ngram_score.resize(cand->tgt_wids.size(),0.0);
-                cand->nnjm_prob = cal_nnjm_ngram_score(cand);
+                cand->nnjm_prob = cal_nnjm_score(cand);
 
 				cand->score += feature_weight.rule_num*cand->rule_num + feature_weight.len*cand->tgt_word_num
                                + feature_weight.lm*cand->lm_prob + feature_weight.nnjm*cand->nnjm_prob;
@@ -191,29 +193,23 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, vector<int> &tgt_to
  3. 出口参数: 无
  4. 算法简介: 根据源端和目标端单词端位置获取计算每个nnjm ngram得分所需要的历史
 ************************************************************************************* */
-double SentenceTranslator::cal_nnjm_ngram_score(Cand *cand)
+double SentenceTranslator::cal_nnjm_score(Cand *cand)
 {
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
     {
-        cout<<tgt_idx - tgt_window_size<<endl;
         if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
             continue;
         if (tgt_idx - tgt_window_size < 0 && cand->span.second != src_sen_len - 1)
             continue;
 
         vector<int> history = src_context.at(cand->aligned_src_idx.at(tgt_idx));
-        cout<<"history size "<<history.size()<<endl;
         for (int i = tgt_idx - tgt_window_size; i<tgt_idx; i++)
         {
             int nnjm_id = i<0 ? tgt_bos_nnjm_id : nnjm_model->lookup_input_word(get_tgt_word(cand->tgt_wids.at(i)));
             history.push_back(nnjm_id);
         }
         history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
-        cout<<get_tgt_word(cand->tgt_wids.at(tgt_idx))<<' '<<nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx)))<<endl;
-        cout<<"history size "<<history.size()<<endl;
-        cout<<"before lookup ngram"<<endl;
         cand->nnjm_ngram_score.at(tgt_idx) = nnjm_model->lookup_ngram(history);
-        cout<<"after lookup ngram"<<endl;
     }
     return accumulate(cand->nnjm_ngram_score.begin(),cand->nnjm_ngram_score.end(),0.0);
 }
@@ -656,13 +652,11 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 	Candpq candpq_merge;			    //优先级队列,用来临时存储通过合并得到的候选
 	set<vector<int> > duplicate_set;	//用来记录候选是否已经被加入candpq_merge中
 
-    cout<<"generate kbest for span "<<beg<<' '<<span<<endl;
 	//对于当前跨度匹配到的每一条规则,取出非终结符对应的跨度中的最好候选,将合并得到的候选加入candpq_merge
 	for(auto &rule : span2rules.at(beg).at(span))
 	{
 		generate_cand_with_rule_and_add_to_pq(rule,0,0,candpq_merge,duplicate_set);
 	}
-    cout<<"generate initial cands with rules over\n";
 
 	//立方体剪枝,每次从candpq_merge中取出最好的候选加入span2cands中,并将该候选的邻居加入candpq_merge中
 	int added_cand_num = 0;
@@ -683,7 +677,6 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 		span2cands.at(beg).at(span).add(best_cand,para.BEAM_SIZE);
 		added_cand_num++;
 	}
-    cout<<"cube prunning over\n";
 
 	while(!candpq_merge.empty())
 	{
@@ -703,26 +696,18 @@ void SentenceTranslator::generate_cand_with_rule_and_add_to_pq(Rule &rule,int ra
     //key包含两个变量在源端的span（用来检查规则源端是否相同），规则目标端在源端相同的所有目标端的排名（检查规则目标端是否相同）
     //以及子候选在两个变量中的排名（检查子候选是否相同）
     vector<int> key = {rule.span_x1.first,rule.span_x1.second,rule.span_x2.first,rule.span_x2.second,rule.tgt_rule_rank,rank_x1,rank_x2};
-    //cout<<rule.tgt_rule->rule_type<<' '<<rule.span_x1.first<<' '<<rule.span_x1.second<<' '<<rule.span_x2.first<<' '<<rule.span_x2.second<<' '<<rule.tgt_rule_rank<<' '<<rank_x1<<' '<<rank_x2<<endl;
     if (duplicate_set.insert(key).second == false)
         return;
 
-    //for (int e : rule.src_ids)
-        //cout<<src_vocab->get_word(e)<<' ';
-    //cout<<endl;
     if (span2cands.at(rule.span_x1.first).at(rule.span_x1.second).size() <= rank_x1)
         return;
-    //cout<<"check x1\n";
     if (rule.tgt_rule->rule_type >=2 && span2cands.at(rule.span_x2.first).at(rule.span_x2.second).size() <= rank_x2)
         return;
-    //cout<<"check x2\n";
 
     Cand *cand_x1 = span2cands.at(rule.span_x1.first).at(rule.span_x1.second).at(rank_x1);
     Cand *cand_x2 = rule.tgt_rule->rule_type >= 2 ? span2cands.at(rule.span_x2.first).at(rule.span_x2.second).at(rank_x2) : null_cand;
     Cand *cand = new Cand;
-    cout<<"before update cand members"<<endl;
     update_cand_members(cand,rule,rank_x1,rank_x2,cand_x1,cand_x2);
-    cout<<"update cand members over"<<endl;
     candpq_merge.push(cand);
 }
 
@@ -740,7 +725,6 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule->wids.size();
 
     cand->aligned_src_idx = get_aligned_src_idx(cand->span.first,rule.tgt_rule->tgt_to_src_idx,cand_x1,cand_x2);
-    cout<<"get aligned src idx over"<<endl;
 
     int nt_idx = 1; 							//表示第几个非终结符
     for (auto tgt_wid : rule.tgt_rule->wids)
@@ -762,9 +746,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     {
         cand->trans_probs.push_back(cand_x1->trans_probs.at(i) + cand_x2->trans_probs.at(i) + rule.tgt_rule->probs.at(i));
     }
-    cout<<"before cal nnjm ngram score"<<endl;
-    cand->nnjm_prob = cal_nnjm_ngram_score(cand);
-    cout<<"cal nnjm ngram score over"<<endl;
+    cand->nnjm_prob = cal_nnjm_score(cand);
     double increased_nnjm_prob = cand->nnjm_prob - cand_x1->nnjm_prob - cand_x2->nnjm_prob;
     double increased_lm_prob = lm_model->cal_increased_lm_score(cand);
     cand->lm_prob = cand_x1->lm_prob + cand_x2->lm_prob + increased_lm_prob;

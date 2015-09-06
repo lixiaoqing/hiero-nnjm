@@ -67,7 +67,8 @@ ALL_LDLIBS=$(MKL_LDLIBS) $(BOOST_LDLIBS)
 
 
 CXX=g++
-CXXFLAGS=-std=c++0x -O3 -fopenmp -lz -DEIGEN_NO_DEBUG -I. -Ieigen -Inplm -DKENLM_MAX_ORDER=5 $(MKL_CFLAGS)
+#CXXFLAGS=-std=c++0x -O3 -fopenmp -lz -DEIGEN_NO_DEBUG -I. -Ieigen -Inplm -DKENLM_MAX_ORDER=5 $(MKL_CFLAGS)
+CXXFLAGS=-std=c++0x -g -fopenmp -lz -DEIGEN_NO_DEBUG -I. -Ieigen -Inplm -DKENLM_MAX_ORDER=5 $(MKL_CFLAGS)
 objs=lm/*.o util/*.o util/double-conversion/*.o
 
 all: translator ruletable2bin

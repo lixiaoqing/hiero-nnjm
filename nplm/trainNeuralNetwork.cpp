@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <ctime>
 #include <cmath>
 
@@ -95,13 +94,11 @@ int main(int argc, char** argv)
 		ValueArg<string> output_words_file("", "output_words_file", "Vocabulary." , false, "", "string", cmd);
 		ValueArg<string> validation_file("", "validation_file", "Validation data (one numberized example per line)." , false, "", "string", cmd);
 		ValueArg<string> train_file("", "train_file", "Training data (one numberized example per line)." , true, "", "string", cmd);
-		ValueArg<string> train_sent_embedding_file("", "train_sent_embedding_file", "Training sentence embedding file (one embedding per sentence)." , true, "", "string", cmd);
 
 		cmd.parse(argc, argv);
 
 		// define program parameters //
 		myParam.train_file = train_file.getValue();
-		myParam.train_sent_embedding_file = train_sent_embedding_file.getValue();
 		myParam.validation_file = validation_file.getValue();
 		myParam.input_words_file = input_words_file.getValue();
 		myParam.output_words_file = output_words_file.getValue();
@@ -149,7 +146,6 @@ int main(int argc, char** argv)
 
 		const string sep(" Value: ");
 		cerr << train_file.getDescription() << sep << train_file.getValue() << endl;
-		cerr << train_sent_embedding_file.getDescription() << sep << train_sent_embedding_file.getValue() << endl;
 		cerr << validation_file.getDescription() << sep << validation_file.getValue() << endl;
 		cerr << input_words_file.getDescription() << sep << input_words_file.getValue() << endl;
 		cerr << output_words_file.getDescription() << sep << output_words_file.getValue() << endl;
@@ -263,38 +259,6 @@ int main(int argc, char** argv)
 		data_size_t j = uniform_int_distribution<data_size_t>(0, i-1)(rng);
 		training_data.col(i).swap(training_data.col(j));
 	}
-	
-	//read the sentence embeddings
-	ifstream sent_embedding_file(myParam.train_sent_embedding_file.c_str());
-	if( !sent_embedding_file )
-	{
-		cerr << "Error while reading the sentence embedding file from: " <<myParam.train_sent_embedding_file<<endl;
-		return -1;
-	}
-	string sent_line;
-	getline(sent_embedding_file, sent_line);
-	vector<string> counts_and_length;
-	splitBySpace(sent_line, counts_and_length);	
-	int counts = atoi(counts_and_length[0].c_str()), embed_length = atoi(counts_and_length[1].c_str());
-	Matrix<double, Dynamic, Dynamic, Eigen::RowMajor> sent_embeddings(counts, embed_length);
-	vector<string> embeddings;
-	int sent_id = 0;
-	while( getline( sent_embedding_file, sent_line) )
-	{
-		embeddings.clear();
-		splitBySpace(sent_line, embeddings);
-		if( embeddings.size() != embed_length || sent_id == counts )
-		{
-			cerr<<"sentence embedding error for line"<<endl;
-			cerr<<sent_line<<endl;
-			return -1;
-		}
-		for( int i = 0; i < embed_length; ++i )
-		{
-			sent_embeddings(sent_id, i) = atof(embeddings[i].c_str());
-		}
-		sent_id += 1;
-	}
 
 	// Read validation data
 	vector<int> validation_data_flat;
@@ -344,7 +308,6 @@ int main(int argc, char** argv)
 			myParam.input_vocab_size,
 			myParam.output_vocab_size,
 			myParam.input_embedding_dimension,
-			&sent_embeddings,
 			myParam.num_hidden,
 			myParam.output_embedding_dimension,
 			myParam.share_embeddings);
