@@ -66,4 +66,5 @@ class SentenceTranslator
         int tgt_window_size;
         vector<int> src_nnjm_ids;                       //源端每个单词的nnjm id
         vector<vector<int> > src_context;               //源端每个单词的上下文
+        map<vector<int>,double> nnjm_score_cache;       //缓存已经查询过的nnjm得分
 };

@@ -255,7 +255,17 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
             history.push_back(nnjm_id);
         }
         history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
-        cand->nnjm_ngram_score.at(tgt_idx) = nnjm_model->lookup_ngram(history);
+        auto it = nnjm_score_cache.find(history);
+        if (it != nnjm_score_cache.end())
+        {
+            cand->nnjm_ngram_score.at(tgt_idx) = it->second;
+        }
+        else
+        {
+            double score = nnjm_model->lookup_ngram(history);
+            cand->nnjm_ngram_score.at(tgt_idx) = score;
+            nnjm_score_cache.insert(make_pair(history,score));
+        }
     }
     return accumulate(cand->nnjm_ngram_score.begin(),cand->nnjm_ngram_score.end(),0.0);
 }
