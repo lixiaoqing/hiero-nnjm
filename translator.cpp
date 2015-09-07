@@ -35,7 +35,6 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
         vector<int> cur_context(src_nnjm_ids.begin()+i,src_nnjm_ids.begin()+i+2*src_window_size+1);     //源端窗口长度为2*src_window_size+1
         src_context.push_back(cur_context);
     }
-    assert(src_context.size() == src_sen_len);
 
 	span2cands.resize(src_sen_len);
 	span2rules.resize(src_sen_len);
@@ -139,24 +138,21 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 ************************************************************************************* */
 vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, Cand* cand_x1, Cand* cand_x2)
 {
-    int nt1_idx = -1;
-    int nt2_idx = -1;
-    int offset1 = 0;
-    int offset2 = 0;
+    int nt1_idx = -1, nt2_idx = -1;
+    int offset1 = 0, offset2 = 0;
     int nt_num = 1;
-    for (int i=0; i<tgt_rule.tgt_to_src_idx.size(); i++)                  //记录非终结符位置以及每个非终结符包含的单词数
+    for (int i=0; i<tgt_rule.tgt_to_src_idx.size(); i++)                  //记录非终结符位置以及每个非终结符*源端*包含的单词数
     {
-        int src_idx = tgt_rule.tgt_to_src_idx.at(i);
         int tgt_wid = tgt_rule.wids.at(i);
         if (tgt_wid == tgt_nt_id && nt_num == 1)                          //第一个非终结符
         {
-            nt1_idx = src_idx;
+            nt1_idx = tgt_rule.tgt_to_src_idx.at(i);
             offset1 += cand_x1->span.second;
             nt_num++;
         }
         else if (tgt_wid == tgt_nt_id && nt_num == 2)                     //第二个非终结符
         {
-            nt2_idx = src_idx;
+            nt2_idx = tgt_rule.tgt_to_src_idx.at(i);
             offset2 += cand_x2->span.second;
         }
     }
@@ -221,10 +217,7 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
 				}
 			}
         }
-        if (aligned_src_idx.at(i) == -1)  //TODO  impossible
-        {
-            aligned_src_idx.at(i) = src_sen_len/2;
-        }
+        assert(aligned_src_idx.at(i) != -1);
     }
     return aligned_src_idx;
 }
@@ -237,17 +230,31 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
 ************************************************************************************* */
 double SentenceTranslator::cal_nnjm_score(Cand *cand)
 {
-    assert(cand->nnjm_ngram_score.size() == cand->tgt_wids.size());
-    assert(cand->aligned_src_idx.size() == cand->tgt_wids.size());
+    for (int e : cand->applied_rule.src_ids)
+        cout<<src_vocab->get_word(e)<<' ';
+    cout<<"||| ";
+    if (cand->applied_rule.tgt_rule != NULL)
+    {
+        for (int e : cand->applied_rule.tgt_rule->wids)
+            cout<<get_tgt_word(e)<<' ';
+    }
+    else
+    {
+        assert(cand->tgt_wids.size() == 1);
+        assert(cand->tgt_wids.front() < 0);
+        cout<<src_vocab->get_word(cand->applied_rule.src_ids.front())<<' ';
+    }
+    cout<<endl;
+
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
     {
+        cout<<get_tgt_word(cand->tgt_wids.at(tgt_idx))<<" <-> ";
+        cout<<src_vocab->get_word(src_wids.at(cand->aligned_src_idx.at(tgt_idx)))<<endl;
         if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
             continue;
         if (tgt_idx - tgt_window_size < 0 && cand->span.second != src_sen_len - 1)
             continue;
 
-        assert(src_context.size() > cand->aligned_src_idx.at(tgt_idx));
-        assert(cand->aligned_src_idx.at(tgt_idx) >= 0);
         vector<int> history = src_context.at(cand->aligned_src_idx.at(tgt_idx));
         for (int i = tgt_idx - tgt_window_size; i<tgt_idx; i++)
         {
@@ -497,7 +504,6 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
 {
 	vector<int> ids_X1X2 = {src_nt_id,src_nt_id};
 	vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_X1X2,0);
-	//assert(matched_rules_for_prefixes.size() == 2 && matched_rules_for_prefixes.back() != NULL);
 	for (int len_X1X2=1;len_X1X2<src_sen_len;len_X1X2++)                  //glue pattern的跨度不受规则最大跨度RULE_LEN_MAX的限制，可以延伸到句尾
 	{
 		for (int len_X1=0;len_X1<len_X1X2;len_X1++)
@@ -695,6 +701,7 @@ string SentenceTranslator::translate_sentence()
 		}
 	}
 	cout<<words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV)<<endl;
+    cin.get();
 	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV);
 }
 
