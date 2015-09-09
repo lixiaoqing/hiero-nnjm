@@ -217,7 +217,7 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
 				}
 			}
         }
-        assert(aligned_src_idx.at(i) != -1);
+        //assert(aligned_src_idx.at(i) != -1);
     }
     return aligned_src_idx;
 }
@@ -230,6 +230,7 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
 ************************************************************************************* */
 double SentenceTranslator::cal_nnjm_score(Cand *cand)
 {
+    /*
     for (int e : cand->applied_rule.src_ids)
         cout<<src_vocab->get_word(e)<<' ';
     cout<<"||| ";
@@ -245,11 +246,12 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
         cout<<src_vocab->get_word(cand->applied_rule.src_ids.front())<<' ';
     }
     cout<<endl;
+    */
 
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
     {
-        cout<<get_tgt_word(cand->tgt_wids.at(tgt_idx))<<" <-> ";
-        cout<<src_vocab->get_word(src_wids.at(cand->aligned_src_idx.at(tgt_idx)))<<endl;
+        //cout<<get_tgt_word(cand->tgt_wids.at(tgt_idx))<<" <-> ";
+        //cout<<src_vocab->get_word(src_wids.at(cand->aligned_src_idx.at(tgt_idx)))<<endl;
         if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
             continue;
         if (tgt_idx - tgt_window_size < 0 && cand->span.second != src_sen_len - 1)
@@ -584,6 +586,7 @@ vector<TuneInfo> SentenceTranslator::get_tune_info(size_t sen_id)
 		tune_info.feature_values.push_back(candbeam.at(i)->tgt_word_num);
 		tune_info.feature_values.push_back(candbeam.at(i)->rule_num);
 		tune_info.feature_values.push_back(candbeam.at(i)->glue_num);
+		tune_info.feature_values.push_back(candbeam.at(i)->nnjm_prob);
 		tune_info.total_score = candbeam.at(i)->score;
 		nbest_tune_info.push_back(tune_info);
 	}
@@ -700,8 +703,8 @@ string SentenceTranslator::translate_sentence()
 			span2cands.at(beg).at(span).sort();
 		}
 	}
-	cout<<words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV)<<endl;
-    cin.get();
+	//cout<<words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV)<<endl;
+    //cin.get();
 	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV);
 }
 
@@ -713,7 +716,7 @@ string SentenceTranslator::translate_sentence()
 ************************************************************************************* */
 void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t span)
 {
-    cout<<"translating span "<<beg<<' '<<span<<endl;
+    //cout<<"translating span "<<beg<<' '<<span<<endl;
 	Candpq candpq_merge;			    //优先级队列,用来临时存储通过合并得到的候选
 	set<vector<int> > duplicate_set;	//用来记录候选是否已经被加入candpq_merge中
 

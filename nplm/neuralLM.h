@@ -263,7 +263,7 @@ namespace nplm
 			set_output_vocabulary(vocabulary(output_words));
 			resize();
 			// this is faster but takes more memory
-			//nn.premultiply();
+			nn.premultiply();
 		}
 
 		void set_cache(std::size_t cache_size)
