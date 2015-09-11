@@ -141,7 +141,7 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
     int nt1_idx = -1, nt2_idx = -1;
     int offset1 = 0, offset2 = 0;
     int nt_num = 1;
-    for (int i=0; i<tgt_rule.tgt_to_src_idx.size(); i++)                  //记录非终结符位置以及每个非终结符*源端*包含的单词数
+    for (int i=0; i<tgt_rule.tgt_to_src_idx.size(); i++)                  //记录非终结符在规则源端的位置以及每个非终结符*源端*包含的单词数
     {
         int tgt_wid = tgt_rule.wids.at(i);
         if (tgt_wid == tgt_nt_id && nt_num == 1)                          //第一个非终结符
@@ -217,7 +217,7 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
 				}
 			}
         }
-        //assert(aligned_src_idx.at(i) != -1);
+        assert(aligned_src_idx.at(i) != -1);
     }
     return aligned_src_idx;
 }
@@ -230,30 +230,10 @@ vector<int> SentenceTranslator::get_aligned_src_idx(int beg, TgtRule &tgt_rule, 
 ************************************************************************************* */
 double SentenceTranslator::cal_nnjm_score(Cand *cand)
 {
-    /*
-    for (int e : cand->applied_rule.src_ids)
-        cout<<src_vocab->get_word(e)<<' ';
-    cout<<"||| ";
-    if (cand->applied_rule.tgt_rule != NULL)
-    {
-        for (int e : cand->applied_rule.tgt_rule->wids)
-            cout<<get_tgt_word(e)<<' ';
-    }
-    else
-    {
-        assert(cand->tgt_wids.size() == 1);
-        assert(cand->tgt_wids.front() < 0);
-        cout<<src_vocab->get_word(cand->applied_rule.src_ids.front())<<' ';
-    }
-    cout<<endl;
-    */
-
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
     {
-        //cout<<get_tgt_word(cand->tgt_wids.at(tgt_idx))<<" <-> ";
-        //cout<<src_vocab->get_word(src_wids.at(cand->aligned_src_idx.at(tgt_idx)))<<endl;
-        if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
-            continue;
+        //if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
+            //continue;
         if (tgt_idx - tgt_window_size < 0 && cand->span.second != src_sen_len - 1)
             continue;
 
@@ -696,7 +676,7 @@ string SentenceTranslator::translate_sentence()
 	}
 	for (size_t span=1;span<src_sen_len;span++)
 	{
-#pragma omp parallel for num_threads(para.SPAN_THREAD_NUM)
+//#pragma omp parallel for num_threads(para.SPAN_THREAD_NUM)
 		for(size_t beg=0;beg<src_sen_len-span;beg++)
 		{
 			generate_kbest_for_span(beg,span);
@@ -704,7 +684,40 @@ string SentenceTranslator::translate_sentence()
 		}
 	}
 	//cout<<words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV)<<endl;
-    //cin.get();
+    /*
+    Cand* cand = span2cands.at(0).at(src_sen_len-1).top();
+    for (int e : src_wids)
+        cout<<src_vocab->get_word(e)<<' ';
+    cout<<"||| ";
+    for (int i=0;i<cand->tgt_wids.size();i++)
+    {
+        int wid = cand->tgt_wids.at(i);
+        int idx = cand->aligned_src_idx.at(i);
+        cout<<get_tgt_word(wid)<<'/'<<src_vocab->get_word(src_wids.at(idx))<<' ';
+    }
+    cout<<endl;
+    vector<int> history;
+    for (int i=0;i<cand->tgt_wids.size();i++)
+    {
+        for (auto e : src_context.at(cand->aligned_src_idx.at(i)))
+        {
+            cout<<e<<' ';
+            history.push_back(e);
+        }
+        for (int j = i - tgt_window_size; j<i; j++)
+        {
+            int e = j<0 ? tgt_bos_nnjm_id : nnjm_model->lookup_input_word(get_tgt_word(cand->tgt_wids.at(j)));
+            cout<<e<<' ';
+            history.push_back(e);
+        }
+        cout<<nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(i)))<<' ';
+        history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(i))));
+        cout<<" ||| "<<nnjm_model->lookup_ngram(history)<<" ||| ";
+        cout<<cand->nnjm_ngram_score.at(i)<<endl;
+    }
+    cout<<cand->nnjm_prob<<endl;
+    cin.get();
+    */
 	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV);
 }
 
@@ -848,4 +861,33 @@ void SentenceTranslator::add_neighbours_to_pq(Cand* cur_cand, Candpq &candpq_mer
 		int rank_x2 = cur_cand->rank_x2;
 		generate_cand_with_rule_and_add_to_pq(cur_cand->applied_rule,rank_x1,rank_x2,candpq_merge,duplicate_set);
 	}
+}
+
+void SentenceTranslator::show_cand(Cand* cand)
+{
+    for (int i=cand->span.first;i<=cand->span.first+cand->span.second;i++)
+        cout<<src_vocab->get_word(src_wids.at(i))<<' ';
+    cout<<"||| ";
+    for (int i=0; i<cand->tgt_wids.size(); i++)
+    {
+        cout<<get_tgt_word(cand->tgt_wids.at(i))<<'/';
+        cout<<src_vocab->get_word(src_wids.at(cand->aligned_src_idx.at(i)))<<'/';
+        cout<<cand->nnjm_ngram_score.at(i)<<' ';
+    }
+    cout<<endl;
+}
+
+void SentenceTranslator::show_rule(Rule &rule)
+{
+    if (rule.tgt_rule == NULL)
+        return;
+    for (int e : rule.src_ids)
+        cout<<src_vocab->get_word(e)<<' ';
+    cout<<"||| ";
+    for (int i=0; i<rule.tgt_rule->wids.size(); i++)
+    {
+        cout<<get_tgt_word(rule.tgt_rule->wids.at(i))<<'/';
+        cout<<rule.tgt_rule->tgt_to_src_idx.at(i)<<' ';
+    }
+    cout<<endl;
 }

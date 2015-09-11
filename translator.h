@@ -39,6 +39,8 @@ class SentenceTranslator
         double cal_nnjm_score(Cand *cand);
         string get_tgt_word(int wid);
         vector<int> get_aligned_src_idx(int beg, TgtRule &tgt_rule,Cand* cand_x1, Cand* cand_x2);
+        void show_cand(Cand *cand);
+        void show_rule(Rule &rule);
 
 	private:
 		Vocab *src_vocab;
