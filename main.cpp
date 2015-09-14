@@ -153,99 +153,100 @@ void parse_args(int argc, char *argv[],Filenames &fns,Parameter &para, Weight &w
 	}
 }
 
-void translate_file(const Models &models, const Parameter &para, const Weight &weight, const string &input_file, const string &output_file)
+void translate_file(const Models &models, const Parameter &para, const Weight &weight, const Filenames &fns)
 {
-	ifstream fin(input_file.c_str());
-	if (!fin.is_open())
+	ifstream fin(fns.input_file.c_str());
+    ofstream fout(fns.output_file.c_str());
+    ofstream fnbest("nbest.txt");
+    ofstream frules("applied-rules.txt");
+	if (!fin.is_open() || !fout.is_open() || !fnbest.is_open() || !frules.is_open() )
 	{
-		cerr<<"cannot open input file!\n";
-		return;
+		cerr<<"file open error!\n";
+        exit(0);
 	}
-	ofstream fout(output_file.c_str());
-	if (!fout.is_open())
-	{
-		cerr<<"cannot open output file!\n";
-		return;
-	}
-	vector<string> input_sen;
-	vector<string> output_sen;
-	vector<vector<TuneInfo> > nbest_tune_info_list;
-	vector<vector<string> > applied_rules_list;
-	string line;
-	while(getline(fin,line))
-	{
-		TrimLine(line);
-		input_sen.push_back(line);
-		vector<string> vs;
-		Split(vs,line);
-		for (const auto &word : vs)
-		{
-			models.src_vocab->get_id(word);                                             //避免并行时同时修改vocab发生冲突
-		}
-	}
-	int sen_num = input_sen.size();
-	output_sen.resize(sen_num);
-	nbest_tune_info_list.resize(sen_num);
-	applied_rules_list.resize(sen_num);
-#pragma omp parallel for num_threads(para.SEN_THREAD_NUM)
-	for (size_t i=0;i<sen_num;i++)
-	{
-		SentenceTranslator sen_translator(models,para,weight,input_sen.at(i));
-		output_sen.at(i) = sen_translator.translate_sentence();
-		if (para.PRINT_NBEST == true)
-		{
-			nbest_tune_info_list.at(i) = sen_translator.get_tune_info(i);
-		}
-		if (para.DUMP_RULE == true)
-		{
-			applied_rules_list.at(i) = sen_translator.get_applied_rules(i);
-		}
-	}
-	for (const auto &sen : output_sen)
-	{
-		fout<<sen<<endl;
-	}
-	if (para.PRINT_NBEST == true)
-	{
-		ofstream fnbest("nbest.txt");
-		if (!fnbest.is_open())
-		{
-			cerr<<"cannot open nbest file!\n";
-			return;
-		}
-		for (const auto &nbest_tune_info : nbest_tune_info_list)
-		{
-			for (const auto &tune_info : nbest_tune_info)
-			{
-				fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
-				for (const auto &v : tune_info.feature_values)
-				{
-					fnbest<<v<<' ';
-				}
-				fnbest<<"||| "<<tune_info.total_score<<endl;
-			}
-		}
-	}
-	if (para.DUMP_RULE == true)
-	{
-		ofstream frules("applied-rules.txt");
-		if (!frules.is_open())
-		{
-			cerr<<"cannot open applied-rules file!\n";
-			return;
-		}
-		size_t n=0;
-		for (const auto &applied_rules : applied_rules_list)
-		{
-			//frules<<++n<<endl;
-			for (const auto &applied_rule : applied_rules)
-			{
-				//frules<<applied_rule<<endl;
-				frules<<applied_rule;
-			}
-			frules<<endl;
-		}
-	}
+
+	vector<vector<string> > input_sen_blocks;
+    int block_size = para.SEN_THREAD_NUM;
+    load_data_into_blocks(input_sen_blocks,fin,block_size);
+
+    vector<neuralLM*> nnjm_models;
+    nnjm_models.resize(block_size,NULL);
+    for (int i=0;i<block_size;i++)
+    {
+        nnjm_models[i] = new neuralLM();
+        nnjm_models[i]->read(fns.nnjm_file);
+    }
+
+	int block_num = input_sen_blocks.size();
+	for (size_t i=0;i<block_num;i++)
+    {
+        block_size = input_sen_blocks.at(i).size();
+        vector<string> output_sen;
+        vector<vector<TuneInfo> > nbest_tune_info_list;
+        vector<vector<string> > applied_rules_list;
+        output_sen.resize(block_size);
+        nbest_tune_info_list.resize(block_size);
+        applied_rules_list.resize(block_size);
+        for (auto line : input_sen_blocks.at(i))
+        {
+            vector<string> vs;
+            Split(vs,line);
+            for (const auto &word : vs)
+            {
+                models.src_vocab->get_id(word);                                             //避免并行时同时修改vocab发生冲突
+            }
+        }
+#pragma omp parallel for num_threads(block_size)
+        for (size_t j=0;j<block_size;j++)
+        {
+            Models cur_models = models;
+            cur_models.nnjm_model = nnjm_models.at(j);
+            SentenceTranslator sen_translator(cur_models,para,weight,input_sen_blocks.at(i).at(j));
+            output_sen.at(j) = sen_translator.translate_sentence();
+            if (para.PRINT_NBEST == true)
+            {
+                nbest_tune_info_list.at(j) = sen_translator.get_tune_info(j);
+            }
+            if (para.DUMP_RULE == true)
+            {
+                applied_rules_list.at(j) = sen_translator.get_applied_rules(j);
+            }
+        }
+        for (const auto &sen : output_sen)
+        {
+            fout<<sen<<endl;
+        }
+        if (para.PRINT_NBEST == true)
+        {
+            for (const auto &nbest_tune_info : nbest_tune_info_list)
+            {
+                for (const auto &tune_info : nbest_tune_info)
+                {
+                    fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
+                    for (const auto &v : tune_info.feature_values)
+                    {
+                        fnbest<<v<<' ';
+                    }
+                    fnbest<<"||| "<<tune_info.total_score<<endl;
+                }
+            }
+        }
+        if (para.DUMP_RULE == true)
+        {
+            size_t n=0;
+            for (const auto &applied_rules : applied_rules_list)
+            {
+                //frules<<++n<<endl;
+                for (const auto &applied_rule : applied_rules)
+                {
+                    //frules<<applied_rule<<endl;
+                    frules<<applied_rule;
+                }
+                frules<<endl;
+            }
+        }
+    }
+
 }
 
 int main( int argc, char *argv[])
@@ -263,15 +264,13 @@ int main( int argc, char *argv[])
 	Vocab *tgt_vocab = new Vocab(fns.tgt_vocab_file);
 	RuleTable *ruletable = new RuleTable(para.RULE_NUM_LIMIT,weight,fns.rule_table_file,src_vocab,tgt_vocab);
 	LanguageModel *lm_model = new LanguageModel(fns.lm_file,tgt_vocab);
-    neuralLM* nnjm_model = new neuralLM();
-    nnjm_model->read(fns.nnjm_file);
 
 
 	b = clock();
 	cout<<"loading time: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
 
-	Models models = {src_vocab,tgt_vocab,ruletable,lm_model,nnjm_model};
-	translate_file(models,para,weight,fns.input_file,fns.output_file);
+	Models models = {src_vocab,tgt_vocab,ruletable,lm_model,NULL};
+	translate_file(models,para,weight,fns);
 	b = clock();
 	cout<<"time cost: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
 	return 0;

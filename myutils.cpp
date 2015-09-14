@@ -29,3 +29,24 @@ void TrimLine(string &line)
 	line.erase(0,line.find_first_not_of(" \t\r\n"));
 	line.erase(line.find_last_not_of(" \t\r\n")+1);
 }
+
+void load_data_into_blocks(vector<vector<string> > &data_blocks, ifstream &fin,int block_size)
+{
+	vector<string> block;
+	int num = 0;
+	string line;
+	while(getline(fin,line))
+	{
+		block.push_back(line);
+		num++;
+		if (num%block_size == 0)
+		{
+			data_blocks.push_back(block);
+			block.clear();
+		}
+	}
+	if (block.size() > 0)
+	{
+		data_blocks.push_back(block);
+	}
+}
