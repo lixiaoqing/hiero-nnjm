@@ -22,10 +22,25 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
     src_nnjm_ids.resize(src_window_size,src_bos_nnjm_id);
 	stringstream ss(input_sen);
 	string word;
+    int i = 0;
+    int beg = 0;
 	while(ss>>word)
 	{
-		src_wids.push_back(src_vocab->get_id(word));
-        src_nnjm_ids.push_back(nnjm_model->lookup_input_word(word));
+        if (word == "EOS")
+        {
+            int span = i - beg - 1;                         //span=0表示句子包含1个词
+            sen_spans.push_back(make_pair(beg,span));
+            beg = i + 1;
+            eos_indexes.push_back(i);
+            src_wids.push_back(-1);
+            src_nnjm_ids.push_back(-1);
+        }
+        else
+        {
+            src_wids.push_back(src_vocab->get_id(word));
+            src_nnjm_ids.push_back(nnjm_model->lookup_input_word(word));
+        }
+        i++;
 	}
     src_nnjm_ids.resize(src_nnjm_ids.size()+src_window_size,src_eos_nnjm_id);
 	src_sen_len = src_wids.size();
@@ -33,17 +48,51 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
     for (int i=0; i<src_sen_len; i++)
     {
         vector<int> cur_context(src_nnjm_ids.begin()+i,src_nnjm_ids.begin()+i+2*src_window_size+1);     //源端窗口长度为2*src_window_size+1
+        bool flag = false;
+        for (int j=src_window_size;j>=0;j--)
+        {
+            if (cur_context.at(j) == -1)
+            {
+                flag = true;
+            }
+            if (flag == true)
+            {
+                cur_context.at(j) = src_bos_nnjm_id;
+            }
+        }
+        flag = false;
+        for (int j=src_window_size;j<cur_context.size();j++)
+        {
+            if (cur_context.at(j) == -1)
+            {
+                flag = true;
+            }
+            if (flag == true)
+            {
+                cur_context.at(j) = src_eos_nnjm_id;
+            }
+        }
         src_context.push_back(cur_context);
     }
 
+	span2validflag.resize(src_sen_len);
+	sen_span_dict.resize(src_sen_len);
 	span2cands.resize(src_sen_len);
 	span2rules.resize(src_sen_len);
 	for (size_t beg=0;beg<src_sen_len;beg++)
 	{
+		span2validflag.at(beg).resize(src_sen_len-beg,true);
+		sen_span_dict.at(beg).resize(src_sen_len-beg,false);
 		span2cands.at(beg).resize(src_sen_len-beg);
 		span2rules.at(beg).resize(src_sen_len-beg);
 	}
 
+    for (auto sen_span : sen_spans)
+    {
+        sen_span_dict.at(sen_span.first).at(sen_span.second) = true;
+    }
+
+	fill_span2validflag();
 	fill_span2cands_with_phrase_rules();
 	fill_span2rules_with_hiero_rules();
 
@@ -65,6 +114,25 @@ SentenceTranslator::~SentenceTranslator()
 	}
 }
 
+void SentenceTranslator::fill_span2validflag()
+{
+	for (size_t beg=0;beg<src_sen_len;beg++)
+	{
+		for (size_t span=0;beg+span<src_sen_len;span++)	//span=0对应跨度包含1个词的情况
+		{
+            int end = beg + span;
+            for (int eos_idx : eos_indexes)
+            {
+                if (beg<=eos_idx && end>=eos_idx)
+                {
+                    span2validflag[beg][span] = false;
+                    break;
+                }
+            }
+		}
+	}
+}
+
 /**************************************************************************************
  1. 函数功能: 根据规则表中匹配到的所有短语规则生成翻译候选, 并加入到span2cands中
  2. 入口参数: 无
@@ -81,6 +149,8 @@ void SentenceTranslator::fill_span2cands_with_phrase_rules()
 		vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(src_wids,beg);
 		for (size_t span=0;span<matched_rules_for_prefixes.size();span++)	//span=0对应跨度包含1个词的情况
 		{
+            if (span2validflag[beg][span] == false)
+                continue;
 			if (matched_rules_for_prefixes.at(span) == NULL)
 			{
 				if (span == 0)
@@ -234,7 +304,7 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
     {
         //if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
             //continue;
-        if (tgt_idx - tgt_window_size < 0 && cand->span.second != src_sen_len - 1)
+        if (tgt_idx - tgt_window_size < 0 && sen_span_dict.at(cand->span.first).at(cand->span.second) == false)
             continue;
 
         vector<int> history = src_context.at(cand->aligned_src_idx.at(tgt_idx));
@@ -486,20 +556,25 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
 {
 	vector<int> ids_X1X2 = {src_nt_id,src_nt_id};
 	vector<vector<TgtRule>* > matched_rules_for_prefixes = ruletable->find_matched_rules_for_prefixes(ids_X1X2,0);
-	for (int len_X1X2=1;len_X1X2<src_sen_len;len_X1X2++)                  //glue pattern的跨度不受规则最大跨度RULE_LEN_MAX的限制，可以延伸到句尾
-	{
-		for (int len_X1=0;len_X1<len_X1X2;len_X1++)
-		{
-			Rule rule;
-            rule.span = make_pair(0,len_X1X2);
-			rule.src_ids = ids_X1X2;
-			rule.tgt_rule = &((*matched_rules_for_prefixes.back()).at(0));
-			rule.tgt_rule_rank = 0;
-			rule.span_x1 = make_pair(0,len_X1);
-			rule.span_x2 = make_pair(len_X1+1,len_X1X2-len_X1-1);
-			span2rules.at(0).at(len_X1X2).push_back(rule);
-		}
-	}
+
+    for (auto &sen_span : sen_spans)
+    {
+        int sen_beg = sen_span.first;
+        int sen_len = sen_span.second;
+        for (int len_X1X2=1;len_X1X2<=sen_len;len_X1X2++)               //glue pattern的跨度不受规则最大跨度RULE_LEN_MAX的限制，可以延伸到句尾
+        {
+            for (int len_X1=0;len_X1<len_X1X2;len_X1++)
+            {
+                Rule rule;
+                rule.src_ids = ids_X1X2;
+                rule.tgt_rule = &((*matched_rules_for_prefixes.back()).at(0));
+                rule.tgt_rule_rank = 0;
+                rule.span_x1 = make_pair(sen_beg,len_X1);
+                rule.span_x2 = make_pair(sen_beg+len_X1+1,len_X1X2-len_X1-1);
+                span2rules.at(sen_beg).at(len_X1X2).push_back(rule);
+            }
+        }
+    }
 }
 
 /**************************************************************************************
@@ -510,6 +585,8 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
 ************************************************************************************* */
 void SentenceTranslator::fill_span2rules_with_matched_rules(vector<TgtRule> &matched_rules,vector<int> &src_ids,pair<int,int> span,pair<int,int> span_src_x1,pair<int,int> span_src_x2)
 {
+    if (span2validflag[span.first][span.second] == false)
+        return;
 	for (int i=0;i<matched_rules.size();i++)
 	{
 		Rule rule;
@@ -549,43 +626,53 @@ string SentenceTranslator::words_to_str(vector<int> wids, int drop_oov)
 		return output;
 }
 
-vector<TuneInfo> SentenceTranslator::get_tune_info(size_t sen_id)
+vector<vector<TuneInfo> > SentenceTranslator::get_tune_info(size_t sen_id)
 {
-	vector<TuneInfo> nbest_tune_info;
-	CandBeam &candbeam = span2cands.at(0).at(src_sen_len-1);
-	for (size_t i=0;i< (candbeam.size()<para.NBEST_NUM?candbeam.size():para.NBEST_NUM);i++)
-	{
-		TuneInfo tune_info;
-		tune_info.sen_id = sen_id;
-		tune_info.translation = words_to_str(candbeam.at(i)->tgt_wids,0);
-		for (size_t j=0;j<PROB_NUM;j++)
-		{
-			tune_info.feature_values.push_back(candbeam.at(i)->trans_probs.at(j));
-		}
-		tune_info.feature_values.push_back(candbeam.at(i)->lm_prob);
-		tune_info.feature_values.push_back(candbeam.at(i)->tgt_word_num);
-		tune_info.feature_values.push_back(candbeam.at(i)->rule_num);
-		tune_info.feature_values.push_back(candbeam.at(i)->glue_num);
-		tune_info.feature_values.push_back(candbeam.at(i)->nnjm_prob);
-		tune_info.total_score = candbeam.at(i)->score;
-		nbest_tune_info.push_back(tune_info);
-	}
-	return nbest_tune_info;
+	vector<vector<TuneInfo> > nbest_tune_info_list;
+    for (auto &sen_span : sen_spans)
+    {
+        vector<TuneInfo> nbest_tune_info;
+        CandBeam &candbeam = span2cands.at(sen_span.first).at(sen_span.second);
+        for (size_t i=0;i< (candbeam.size()<para.NBEST_NUM?candbeam.size():para.NBEST_NUM);i++)
+        {
+            TuneInfo tune_info;
+            tune_info.sen_id = sen_id;
+            tune_info.translation = words_to_str(candbeam.at(i)->tgt_wids,0);
+            for (size_t j=0;j<PROB_NUM;j++)
+            {
+                tune_info.feature_values.push_back(candbeam.at(i)->trans_probs.at(j));
+            }
+            tune_info.feature_values.push_back(candbeam.at(i)->lm_prob);
+            tune_info.feature_values.push_back(candbeam.at(i)->tgt_word_num);
+            tune_info.feature_values.push_back(candbeam.at(i)->rule_num);
+            tune_info.feature_values.push_back(candbeam.at(i)->glue_num);
+            tune_info.feature_values.push_back(candbeam.at(i)->nnjm_prob);
+            tune_info.total_score = candbeam.at(i)->score;
+            nbest_tune_info.push_back(tune_info);
+        }
+        nbest_tune_info_list.push_back(nbest_tune_info);
+    }
+	return nbest_tune_info_list;
 }
 
-vector<string> SentenceTranslator::get_applied_rules(size_t sen_id)
+vector<vector<string> > SentenceTranslator::get_applied_rules(size_t sen_id)
 {
-	vector<string> applied_rules;
-	Cand *best_cand = span2cands.at(0).at(src_sen_len-1).top();
-	dump_rules(applied_rules,best_cand);
-	applied_rules.push_back(" ||||| ");
-	string src_sen;
-	for (auto wid : src_wids)
-	{
-		src_sen += src_vocab->get_word(wid)+" ";
-	}
-	applied_rules.push_back(src_sen);
-	return applied_rules;
+    vector<vector<string> > applied_rules_list;
+    for (auto &sen_span : sen_spans)
+    {
+        vector<string> applied_rules;
+        Cand *best_cand = span2cands.at(sen_span.first).at(sen_span.second).top();
+        dump_rules(applied_rules,best_cand);
+        applied_rules.push_back(" ||||| ");
+        string src_sen;
+        for (auto wid : src_wids)
+        {
+            src_sen += src_vocab->get_word(wid)+" ";
+        }
+        applied_rules.push_back(src_sen);
+        applied_rules_list.push_back(applied_rules);
+    }
+	return applied_rules_list;
 }
 
 /**************************************************************************************
@@ -666,10 +753,8 @@ void SentenceTranslator::dump_rules(vector<string> &applied_rules, Cand *cand)
 	}
 }
 
-string SentenceTranslator::translate_sentence()
+vector<string> SentenceTranslator::translate_sentence()
 {
-	if (src_sen_len == 0)
-		return "";
 	for(size_t beg=0;beg<src_sen_len;beg++)
 	{
 		span2cands.at(beg).at(0).sort();		               //对列表中的候选进行排序
@@ -683,6 +768,12 @@ string SentenceTranslator::translate_sentence()
 			span2cands.at(beg).at(span).sort();
 		}
 	}
+    vector<string> output_sens;
+    for (auto &sen_span : sen_spans)
+    {
+        output_sens.push_back(words_to_str(span2cands.at(sen_span.first).at(sen_span.second).top()->tgt_wids,para.DROP_OOV));
+    }
+    return output_sens;
 	//cout<<words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV)<<endl;
     /*
     Cand* cand = span2cands.at(0).at(src_sen_len-1).top();
@@ -718,7 +809,7 @@ string SentenceTranslator::translate_sentence()
     cout<<cand->nnjm_prob<<endl;
     cin.get();
     */
-	return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV);
+	//return words_to_str(span2cands.at(0).at(src_sen_len-1).top()->tgt_wids,para.DROP_OOV);
 }
 
 /**************************************************************************************
@@ -729,7 +820,8 @@ string SentenceTranslator::translate_sentence()
 ************************************************************************************* */
 void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t span)
 {
-    //cout<<"translating span "<<beg<<' '<<span<<endl;
+    if (span2validflag[beg][span] == false)
+        return;
 	Candpq candpq_merge;			    //优先级队列,用来临时存储通过合并得到的候选
 	set<vector<int> > duplicate_set;	//用来记录候选是否已经被加入candpq_merge中
 
@@ -747,7 +839,16 @@ void SentenceTranslator::generate_kbest_for_span(const size_t beg,const size_t s
 			break;
 		Cand* best_cand = candpq_merge.top();
 		candpq_merge.pop();
-		if (span == src_sen_len-1)
+        bool flag = false;
+        for (auto &sen_span : sen_spans)
+        {
+            if (beg == sen_span.first && span == sen_span.second)
+            {
+                flag = true;
+                break;
+            }
+        }
+		if (flag == true)
 		{
 			double increased_lm_prob = lm_model->cal_final_increased_lm_score(best_cand);
 			best_cand->lm_prob += increased_lm_prob;
@@ -803,7 +904,7 @@ void SentenceTranslator::update_cand_members(Cand* cand, Rule &rule, int rank_x1
     cand->rank_x2 = rule.tgt_rule->rule_type >= 2 ? rank_x2 : -1;
     cand->child_x1 = cand_x1;
     cand->child_x2 = rule.tgt_rule->rule_type >= 2 ? cand_x2 : NULL;
-    cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule->wids.size();
+    cand->tgt_word_num = cand_x1->tgt_word_num + cand_x2->tgt_word_num + rule.tgt_rule->word_num;
 
     cand->aligned_src_idx = get_aligned_src_idx(cand->span.first,*(rule.tgt_rule),cand_x1,cand_x2);
 

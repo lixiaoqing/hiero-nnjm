@@ -19,10 +19,11 @@ class SentenceTranslator
 	public:
 		SentenceTranslator(const Models &i_models, const Parameter &i_para, const Weight &i_weight, const string &input_sen);
 		~SentenceTranslator();
-		string translate_sentence();
-		vector<TuneInfo> get_tune_info(size_t sen_id);
-		vector<string> get_applied_rules(size_t sen_id);
+		vector<string> translate_sentence();
+		vector<vector<TuneInfo> > get_tune_info(size_t sen_id);
+		vector<vector<string> > get_applied_rules(size_t sen_id);
 	private:
+        void fill_span2validflag();
 		void fill_span2cands_with_phrase_rules();
 		void fill_span2rules_with_hiero_rules();
 		void fill_span2rules_with_AX_XA_XAX_rule();
@@ -51,11 +52,15 @@ class SentenceTranslator
 		Parameter para;
 		Weight feature_weight;
 
+        vector<vector<bool> > span2validflag;           //检查每个span是否应该生成候选，跨越EOS的span不生成候选
 		vector<vector<CandBeam> > span2cands;		    //存储解码过程中所有跨度对应的候选列表, 
 													    //span2cands[i][j]存储起始位置为i, 跨度为j的候选列表
 		vector<vector<vector<Rule> > > span2rules;	    //存储每个跨度所有能用的hiero规则
 
 		vector<int> src_wids;
+        vector<pair<int,int> > sen_spans;
+        vector<vector<bool> > sen_span_dict;
+        vector<int> eos_indexes;
 		size_t src_sen_len;
 		int src_nt_id;                                  //源端非终结符的id
 		int tgt_nt_id; 									//目标端非终结符的id

@@ -181,12 +181,12 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
 	for (size_t i=0;i<block_num;i++)
     {
         block_size = input_sen_blocks.at(i).size();
-        vector<string> output_sen;
-        vector<vector<TuneInfo> > nbest_tune_info_list;
-        vector<vector<string> > applied_rules_list;
-        output_sen.resize(block_size);
-        nbest_tune_info_list.resize(block_size);
-        applied_rules_list.resize(block_size);
+        vector<vector<string> > output_paras;
+        vector<vector<vector<TuneInfo> > > nbest_tune_info_lists;
+        vector<vector<vector<string> > > applied_rules_lists;
+        output_paras.resize(block_size);
+        nbest_tune_info_lists.resize(block_size);
+        applied_rules_lists.resize(block_size);
         for (auto line : input_sen_blocks.at(i))
         {
             vector<string> vs;
@@ -202,51 +202,56 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
             Models cur_models = models;
             cur_models.nnjm_model = nnjm_models.at(j);
             SentenceTranslator sen_translator(cur_models,para,weight,input_sen_blocks.at(i).at(j));
-            output_sen.at(j) = sen_translator.translate_sentence();
+            output_paras.at(j) = sen_translator.translate_sentence();
             if (para.PRINT_NBEST == true)
             {
-                nbest_tune_info_list.at(j) = sen_translator.get_tune_info(j);
+                nbest_tune_info_lists.at(j) = sen_translator.get_tune_info(i*para.SEN_THREAD_NUM+j);
             }
             if (para.DUMP_RULE == true)
             {
-                applied_rules_list.at(j) = sen_translator.get_applied_rules(j);
+                applied_rules_lists.at(j) = sen_translator.get_applied_rules(j);
             }
         }
-        for (const auto &sen : output_sen)
+        for (const auto &output_sens : output_paras)
         {
-            fout<<sen<<endl;
+            for (const auto & sen : output_sens)
+            {
+                fout<<sen<<endl;
+            }
         }
         if (para.PRINT_NBEST == true)
         {
-            for (const auto &nbest_tune_info : nbest_tune_info_list)
+            for (const auto &nbest_tune_info_list : nbest_tune_info_lists)
             {
-                for (const auto &tune_info : nbest_tune_info)
+                for (const auto &nbest_tune_info : nbest_tune_info_list)
                 {
-                    fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
-                    for (const auto &v : tune_info.feature_values)
+                    for (const auto &tune_info : nbest_tune_info)
                     {
-                        fnbest<<v<<' ';
+                        fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
+                        for (const auto &v : tune_info.feature_values)
+                        {
+                            fnbest<<v<<' ';
+                        }
+                        fnbest<<"||| "<<tune_info.total_score<<endl;
                     }
-                    fnbest<<"||| "<<tune_info.total_score<<endl;
                 }
             }
         }
         if (para.DUMP_RULE == true)
         {
-            size_t n=0;
-            for (const auto &applied_rules : applied_rules_list)
+            for (const auto &applied_rules_list : applied_rules_lists)
             {
-                //frules<<++n<<endl;
-                for (const auto &applied_rule : applied_rules)
+                for (const auto &applied_rules : applied_rules_list)
                 {
-                    //frules<<applied_rule<<endl;
-                    frules<<applied_rule;
+                    for (const auto &applied_rule : applied_rules)
+                    {
+                        frules<<applied_rule;
+                    }
+                    frules<<endl;
                 }
-                frules<<endl;
             }
         }
     }
-
 }
 
 int main( int argc, char *argv[])
