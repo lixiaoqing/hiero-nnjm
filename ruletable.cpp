@@ -19,7 +19,7 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 		fin.read((char*)&tgt_rule_len,sizeof(short int));
 		if (tgt_rule_len > RULE_LEN_MAX)
 		{
-			cout<<"error, rule length exceed, bye\n";
+			cerr<<"error, rule length exceed, bye\n";
 			exit(EXIT_FAILURE);
 		}
 		TgtRule tgt_rule;
@@ -35,7 +35,7 @@ void RuleTable::load_rule_table(const string &rule_table_file)
 		tgt_rule.score = 0;
 		if( tgt_rule.probs.size() != weight.trans.size() )
 		{
-			cout<<"number of probability in rule is wrong!"<<endl;
+			cerr<<"number of probability in rule is wrong!"<<endl;
 		}
 		for( size_t i=0; i<weight.trans.size(); i++ )
 		{
@@ -72,7 +72,7 @@ void RuleTable::load_rule_table(const string &rule_table_file)
         */
 	}
 	fin.close();
-	cout<<"load rule table file "<<rule_table_file<<" over\n";
+	cerr<<"load rule table file "<<rule_table_file<<" over\n";
 }
 
 vector<vector<TgtRule>* > RuleTable::find_matched_rules_for_prefixes(const vector<int> &src_wids,const size_t pos)

@@ -103,7 +103,7 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 			while(getline(fin,line))
 			{
 				if (line == "")
-					break;
+					continue;
 				stringstream ss(line);
 				string feature;
 				ss >> feature;
@@ -113,23 +113,23 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 					ss>>w;
 					weight.trans.push_back(w);
 				}
-				else if(feature == "len")
+				else if(feature == "len0=")
 				{
 					ss>>weight.len;
 				}
-				else if(feature == "lm")
+				else if(feature == "lm0=")
 				{
 					ss>>weight.lm;
 				}
-				else if(feature == "rule-num")
+				else if(feature == "rule0=")
 				{
 					ss>>weight.rule_num;
 				}
-				else if(feature == "glue")
+				else if(feature == "glue0=")
 				{
 					ss>>weight.glue;
 				}
-				else if(feature == "nnjm")
+				else if(feature == "nnjm0=")
 				{
 					ss>>weight.nnjm;
 				}
@@ -140,16 +140,80 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 
 void parse_args(int argc, char *argv[],Filenames &fns,Parameter &para, Weight &weight)
 {
-	read_config(fns,para,weight,"config.ini");
+	if (argc == 1)
+	{
+		read_config(fns,para,weight,"config.ini");
+	}
 	for( int i=1; i<argc; i++ )
 	{
 		string arg( argv[i] );
-		if( arg == "-n-best-list" )
+		if( arg == "-config" )
+		{
+			read_config(fns,para,weight,argv[++i]);
+		}
+        else if( arg == "-n-best-list" )
 		{
 			fns.nbest_file = argv[++i];
 			para.NBEST_NUM = stoi(argv[++i]);
 		}
-
+		else if( arg == "-weight-overwrite" )
+		{
+			string weight_str = argv[++i];
+			vector<string> vs;
+			Split(vs,weight_str);
+			for (size_t j=0; j<vs.size(); j++)
+			{
+				if (vs[j].find("transa") != string::npos)
+				{
+					weight.trans[0] = stod(vs[++j]);
+				}
+				else if (vs[j].find("transb") != string::npos)
+				{
+					weight.trans[1] = stod(vs[++j]);
+				}
+				else if (vs[j].find("transc") != string::npos)
+				{
+					weight.trans[2] = stod(vs[++j]);
+				}
+				else if (vs[j].find("transd") != string::npos)
+				{
+					weight.trans[3] = stod(vs[++j]);
+				}
+				else if (vs[j].find("lm") != string::npos)
+				{
+					weight.lm = stod(vs[++j]);
+				}
+				else if (vs[j].find("len") != string::npos)
+				{
+					weight.len = stod(vs[++j]);
+				}
+				else if (vs[j].find("rule") != string::npos)
+				{
+					weight.rule_num = stod(vs[++j]);
+				}
+				else if (vs[j].find("glue") != string::npos)
+				{
+					weight.glue = stod(vs[++j]);
+				}
+				else if (vs[j].find("nnjm") != string::npos)
+				{
+					weight.nnjm = stod(vs[++j]);
+				}
+			}
+		}
+		else if( arg == "-show-weights" )
+		{
+			for (size_t j=0; j<weight.trans.size(); j++)
+			{
+				cout<<"trans"<<(char)('a'+j)<<"0= "<<weight.trans[j]<<endl;
+			}
+			cout<<"lm0= "<<weight.lm<<endl;
+			cout<<"len0= "<<weight.len<<endl;
+			cout<<"rule0= "<<weight.rule_num<<endl;
+			cout<<"glue0= "<<weight.glue<<endl;
+			cout<<"nnjm0= "<<weight.nnjm<<endl;
+			exit(0);
+		}
 	}
 }
 
@@ -157,7 +221,7 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
 {
 	ifstream fin(fns.input_file.c_str());
     ofstream fout(fns.output_file.c_str());
-    ofstream fnbest("nbest.txt");
+    ofstream fnbest(fns.nbest_file.c_str());
     ofstream frules("applied-rules.txt");
 	if (!fin.is_open() || !fout.is_open() || !fnbest.is_open() || !frules.is_open() )
 	{
@@ -217,6 +281,7 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
             for (const auto & sen : output_sens)
             {
                 fout<<sen<<endl;
+                cout<<sen<<endl;
             }
         }
         if (para.PRINT_NBEST == true)
@@ -228,10 +293,15 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
                     for (const auto &tune_info : nbest_tune_info)
                     {
                         fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
-                        for (const auto &v : tune_info.feature_values)
+                        for (size_t i=0; i<PROB_NUM; i++)
                         {
-                            fnbest<<v<<' ';
+                            fnbest<<"trans"<<(char)('a'+i)<<"0= "<<tune_info.feature_values[i]<<" ";
                         }
+                        fnbest<<"lm0= "<<tune_info.feature_values[4]<<" ";
+                        fnbest<<"len0= "<<tune_info.feature_values[5]<<" ";
+                        fnbest<<"rule0= "<<tune_info.feature_values[6]<<" ";
+                        fnbest<<"glue0= "<<tune_info.feature_values[7]<<" ";
+                        fnbest<<"nnjm0= "<<tune_info.feature_values[8]<<" ";
                         fnbest<<"||| "<<tune_info.total_score<<endl;
                     }
                 }
@@ -270,13 +340,12 @@ int main( int argc, char *argv[])
 	RuleTable *ruletable = new RuleTable(para.RULE_NUM_LIMIT,weight,fns.rule_table_file,src_vocab,tgt_vocab);
 	LanguageModel *lm_model = new LanguageModel(fns.lm_file,tgt_vocab);
 
-
 	b = clock();
-	cout<<"loading time: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
+	cerr<<"loading time: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
 
 	Models models = {src_vocab,tgt_vocab,ruletable,lm_model,NULL};
 	translate_file(models,para,weight,fns);
 	b = clock();
-	cout<<"time cost: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
+	cerr<<"time cost: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
 	return 0;
 }
