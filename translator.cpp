@@ -566,6 +566,7 @@ void SentenceTranslator::fill_span2rules_with_glue_rule()
             for (int len_X1=0;len_X1<len_X1X2;len_X1++)
             {
                 Rule rule;
+                rule.span = make_pair(sen_beg,len_X1X2);
                 rule.src_ids = ids_X1X2;
                 rule.tgt_rule = &((*matched_rules_for_prefixes.back()).at(0));
                 rule.tgt_rule_rank = 0;
