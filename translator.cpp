@@ -38,7 +38,9 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
         else
         {
             src_wids.push_back(src_vocab->get_id(word));
-            src_nnjm_ids.push_back(nnjm_model->lookup_input_word(word));
+            int nnjm_id = nnjm_model->lookup_input_word(word);
+            src_nnjm_ids.push_back(nnjm_id);
+            nnjm_id_to_indexes[nnjm_id].push_back(i);
         }
         i++;
 	}
@@ -72,7 +74,7 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
                 cur_context.at(j) = src_eos_nnjm_id;
             }
         }
-        src_context.push_back(cur_context);
+        src_windows.push_back(cur_context);
     }
 
 	span2validflag.resize(src_sen_len);
@@ -302,29 +304,38 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
 {
     for (int tgt_idx=0;tgt_idx<cand->tgt_wids.size();tgt_idx++)
     {
-        //if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
-            //continue;
+        if (cand->nnjm_ngram_score.at(tgt_idx) != 0.0)
+            continue;
         if (tgt_idx - tgt_window_size < 0 && sen_span_dict.at(cand->span.first).at(cand->span.second) == false)
             continue;
 
-        vector<int> history = src_context.at(cand->aligned_src_idx.at(tgt_idx));
+        vector<int> tgt_context;
         for (int i = tgt_idx - tgt_window_size; i<tgt_idx; i++)
         {
             int nnjm_id = i<0 ? tgt_bos_nnjm_id : nnjm_model->lookup_input_word(get_tgt_word(cand->tgt_wids.at(i)));
-            history.push_back(nnjm_id);
+            tgt_context.push_back(nnjm_id);
         }
-        history.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
-        auto it = nnjm_score_cache.find(history);
-        if (it != nnjm_score_cache.end())
+        tgt_context.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
+        
+        vector<double> nnjm_scores;
+        int nnjm_id = src_nnjm_ids.at(cand->aligned_src_idx.at(tgt_idx)+src_window_size);
+        for (auto idx : nnjm_id_to_indexes[nnjm_id])
         {
-            cand->nnjm_ngram_score.at(tgt_idx) = it->second;
+            vector<int> fifteen_gram = src_windows.at(idx);
+            fifteen_gram.insert(fifteen_gram.end(),tgt_context.begin(),tgt_context.end());
+            auto it = nnjm_score_cache.find(fifteen_gram);
+            if (it != nnjm_score_cache.end())
+            {
+                nnjm_scores.push_back(it->second);
+            }
+            else
+            {
+                double score = nnjm_model->lookup_ngram(fifteen_gram);
+                nnjm_score_cache.insert(make_pair(fifteen_gram,score));
+                nnjm_scores.push_back(score);
+            }
         }
-        else
-        {
-            double score = nnjm_model->lookup_ngram(history);
-            cand->nnjm_ngram_score.at(tgt_idx) = score;
-            nnjm_score_cache.insert(make_pair(history,score));
-        }
+        cand->nnjm_ngram_score.at(tgt_idx) = *max_element(nnjm_scores.begin(),nnjm_scores.end());
     }
     return accumulate(cand->nnjm_ngram_score.begin(),cand->nnjm_ngram_score.end(),0.0);
 }
