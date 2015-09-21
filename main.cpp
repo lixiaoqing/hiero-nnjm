@@ -103,7 +103,7 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 			while(getline(fin,line))
 			{
 				if (line == "")
-					continue;
+					break;
 				stringstream ss(line);
 				string feature;
 				ss >> feature;
@@ -113,23 +113,23 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 					ss>>w;
 					weight.trans.push_back(w);
 				}
-				else if(feature == "len0=")
+				else if(feature == "len")
 				{
 					ss>>weight.len;
 				}
-				else if(feature == "lm0=")
+				else if(feature == "lm")
 				{
 					ss>>weight.lm;
 				}
-				else if(feature == "rule0=")
+				else if(feature == "rule-num")
 				{
 					ss>>weight.rule_num;
 				}
-				else if(feature == "glue0=")
+				else if(feature == "glue")
 				{
 					ss>>weight.glue;
 				}
-				else if(feature == "nnjm0=")
+				else if(feature == "nnjm")
 				{
 					ss>>weight.nnjm;
 				}
@@ -140,80 +140,16 @@ void read_config(Filenames &fns,Parameter &para, Weight &weight, const string &c
 
 void parse_args(int argc, char *argv[],Filenames &fns,Parameter &para, Weight &weight)
 {
-	if (argc == 1)
-	{
-		read_config(fns,para,weight,"config.ini");
-	}
+	read_config(fns,para,weight,"config.ini");
 	for( int i=1; i<argc; i++ )
 	{
 		string arg( argv[i] );
-		if( arg == "-config" )
-		{
-			read_config(fns,para,weight,argv[++i]);
-		}
-        else if( arg == "-n-best-list" )
+		if( arg == "-n-best-list" )
 		{
 			fns.nbest_file = argv[++i];
 			para.NBEST_NUM = stoi(argv[++i]);
 		}
-		else if( arg == "-weight-overwrite" )
-		{
-			string weight_str = argv[++i];
-			vector<string> vs;
-			Split(vs,weight_str);
-			for (size_t j=0; j<vs.size(); j++)
-			{
-				if (vs[j].find("transa") != string::npos)
-				{
-					weight.trans[0] = stod(vs[++j]);
-				}
-				else if (vs[j].find("transb") != string::npos)
-				{
-					weight.trans[1] = stod(vs[++j]);
-				}
-				else if (vs[j].find("transc") != string::npos)
-				{
-					weight.trans[2] = stod(vs[++j]);
-				}
-				else if (vs[j].find("transd") != string::npos)
-				{
-					weight.trans[3] = stod(vs[++j]);
-				}
-				else if (vs[j].find("lm") != string::npos)
-				{
-					weight.lm = stod(vs[++j]);
-				}
-				else if (vs[j].find("len") != string::npos)
-				{
-					weight.len = stod(vs[++j]);
-				}
-				else if (vs[j].find("rule") != string::npos)
-				{
-					weight.rule_num = stod(vs[++j]);
-				}
-				else if (vs[j].find("glue") != string::npos)
-				{
-					weight.glue = stod(vs[++j]);
-				}
-				else if (vs[j].find("nnjm") != string::npos)
-				{
-					weight.nnjm = stod(vs[++j]);
-				}
-			}
-		}
-		else if( arg == "-show-weights" )
-		{
-			for (size_t j=0; j<weight.trans.size(); j++)
-			{
-				cout<<"trans"<<(char)('a'+j)<<"0= "<<weight.trans[j]<<endl;
-			}
-			cout<<"lm0= "<<weight.lm<<endl;
-			cout<<"len0= "<<weight.len<<endl;
-			cout<<"rule0= "<<weight.rule_num<<endl;
-			cout<<"glue0= "<<weight.glue<<endl;
-			cout<<"nnjm0= "<<weight.nnjm<<endl;
-			exit(0);
-		}
+
 	}
 }
 
@@ -293,15 +229,10 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
                     for (const auto &tune_info : nbest_tune_info)
                     {
                         fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
-                        for (size_t i=0; i<PROB_NUM; i++)
+                        for (const auto &v : tune_info.feature_values)
                         {
-                            fnbest<<"trans"<<(char)('a'+i)<<"0= "<<tune_info.feature_values[i]<<" ";
+                            fnbest<<v<<' ';
                         }
-                        fnbest<<"lm0= "<<tune_info.feature_values[4]<<" ";
-                        fnbest<<"len0= "<<tune_info.feature_values[5]<<" ";
-                        fnbest<<"rule0= "<<tune_info.feature_values[6]<<" ";
-                        fnbest<<"glue0= "<<tune_info.feature_values[7]<<" ";
-                        fnbest<<"nnjm0= "<<tune_info.feature_values[8]<<" ";
                         fnbest<<"||| "<<tune_info.total_score<<endl;
                     }
                 }
