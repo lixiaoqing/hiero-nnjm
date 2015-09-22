@@ -638,17 +638,18 @@ string SentenceTranslator::words_to_str(vector<int> wids, int drop_oov)
 		return output;
 }
 
-vector<vector<TuneInfo> > SentenceTranslator::get_tune_info(size_t sen_id)
+vector<vector<TuneInfo> > SentenceTranslator::get_tune_info()
 {
 	vector<vector<TuneInfo> > nbest_tune_info_list;
+    int offset = -1;
     for (auto &sen_span : sen_spans)
     {
+        offset++;
         vector<TuneInfo> nbest_tune_info;
         CandBeam &candbeam = span2cands.at(sen_span.first).at(sen_span.second);
         for (size_t i=0;i< (candbeam.size()<para.NBEST_NUM?candbeam.size():para.NBEST_NUM);i++)
         {
             TuneInfo tune_info;
-            tune_info.sen_id = sen_id;
             tune_info.translation = words_to_str(candbeam.at(i)->tgt_wids,0);
             for (size_t j=0;j<PROB_NUM;j++)
             {
@@ -667,7 +668,7 @@ vector<vector<TuneInfo> > SentenceTranslator::get_tune_info(size_t sen_id)
 	return nbest_tune_info_list;
 }
 
-vector<vector<string> > SentenceTranslator::get_applied_rules(size_t sen_id)
+vector<vector<string> > SentenceTranslator::get_applied_rules()
 {
     vector<vector<string> > applied_rules_list;
     for (auto &sen_span : sen_spans)

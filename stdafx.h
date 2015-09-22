@@ -39,7 +39,6 @@ const double LogP_One = 0.0;
 
 struct TuneInfo
 {
-	size_t sen_id;
 	string translation;
 	vector<double> feature_values;
 	double total_score;

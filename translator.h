@@ -20,8 +20,8 @@ class SentenceTranslator
 		SentenceTranslator(const Models &i_models, const Parameter &i_para, const Weight &i_weight, const string &input_sen);
 		~SentenceTranslator();
 		vector<string> translate_sentence();
-		vector<vector<TuneInfo> > get_tune_info(size_t sen_id);
-		vector<vector<string> > get_applied_rules(size_t sen_id);
+		vector<vector<TuneInfo> > get_tune_info();
+		vector<vector<string> > get_applied_rules();
 	private:
         void fill_span2validflag();
 		void fill_span2cands_with_phrase_rules();

@@ -177,6 +177,7 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
         nnjm_models[i]->read(fns.nnjm_file);
     }
 
+    int sen_id = -1;
 	int block_num = input_sen_blocks.size();
 	for (size_t i=0;i<block_num;i++)
     {
@@ -205,11 +206,11 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
             output_paras.at(j) = sen_translator.translate_sentence();
             if (para.PRINT_NBEST == true)
             {
-                nbest_tune_info_lists.at(j) = sen_translator.get_tune_info(i*para.SEN_THREAD_NUM+j);
+                nbest_tune_info_lists.at(j) = sen_translator.get_tune_info();
             }
             if (para.DUMP_RULE == true)
             {
-                applied_rules_lists.at(j) = sen_translator.get_applied_rules(j);
+                applied_rules_lists.at(j) = sen_translator.get_applied_rules();
             }
         }
         for (const auto &output_sens : output_paras)
@@ -226,9 +227,10 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
             {
                 for (const auto &nbest_tune_info : nbest_tune_info_list)
                 {
+                    sen_id++;
                     for (const auto &tune_info : nbest_tune_info)
                     {
-                        fnbest<<tune_info.sen_id<<" ||| "<<tune_info.translation<<" ||| ";
+                        fnbest<<sen_id<<" ||| "<<tune_info.translation<<" ||| ";
                         for (const auto &v : tune_info.feature_values)
                         {
                             fnbest<<v<<' ';
