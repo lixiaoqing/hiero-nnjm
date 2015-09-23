@@ -74,5 +74,5 @@ class SentenceTranslator
         vector<int> src_nnjm_ids;                       //源端每个单词的nnjm id
         vector<vector<int> > src_windows;               //源端每个单词的上下文
         map<vector<int>,double> nnjm_score_cache;       //缓存已经查询过的nnjm得分
-        map<int,vector<int> > nnjm_id_to_indexes;       //记录每个词在源端段落中出现的位置
+        map<int,vector<int> > wid_to_indexes;           //记录每个词在源端段落中出现的位置
 };

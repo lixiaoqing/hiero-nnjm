@@ -144,12 +144,10 @@ void parse_args(int argc, char *argv[],Filenames &fns,Parameter &para, Weight &w
 	for( int i=1; i<argc; i++ )
 	{
 		string arg( argv[i] );
-		if( arg == "-n-best-list" )
+		if( arg == "-i" )
 		{
-			fns.nbest_file = argv[++i];
-			para.NBEST_NUM = stoi(argv[++i]);
+			fns.input_file = argv[++i];
 		}
-
 	}
 }
 

@@ -37,10 +37,11 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
         }
         else
         {
-            src_wids.push_back(src_vocab->get_id(word));
+            int wid = src_vocab->get_id(word);
+            src_wids.push_back(wid);
             int nnjm_id = nnjm_model->lookup_input_word(word);
             src_nnjm_ids.push_back(nnjm_id);
-            nnjm_id_to_indexes[nnjm_id].push_back(i);
+            wid_to_indexes[wid].push_back(i);
         }
         i++;
 	}
@@ -319,7 +320,8 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
         
         vector<double> nnjm_scores;
         int nnjm_id = src_nnjm_ids.at(cand->aligned_src_idx.at(tgt_idx)+src_window_size);
-        for (auto idx : nnjm_id_to_indexes[nnjm_id])
+        int wid = src_wids.at(cand->aligned_src_idx.at(tgt_idx));
+        for (auto idx : wid_to_indexes[wid])
         {
             vector<int> fifteen_gram = src_windows.at(idx);
             fifteen_gram.insert(fifteen_gram.end(),tgt_context.begin(),tgt_context.end());
