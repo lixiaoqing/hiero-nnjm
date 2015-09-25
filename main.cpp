@@ -216,7 +216,7 @@ void translate_file(const Models &models, const Parameter &para, const Weight &w
             for (const auto & sen : output_sens)
             {
                 fout<<sen<<endl;
-                cout<<sen<<endl;
+                //cout<<sen<<endl;
             }
         }
         if (para.PRINT_NBEST == true)

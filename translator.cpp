@@ -337,7 +337,8 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
                 nnjm_scores.push_back(score);
             }
         }
-        cand->nnjm_ngram_score.at(tgt_idx) = *max_element(nnjm_scores.begin(),nnjm_scores.end());
+        //cand->nnjm_ngram_score.at(tgt_idx) = *max_element(nnjm_scores.begin(),nnjm_scores.end());
+        cand->nnjm_ngram_score.at(tgt_idx) = accumulate(nnjm_scores.begin(),nnjm_scores.end(),0.0)/nnjm_scores.size();
     }
     return accumulate(cand->nnjm_ngram_score.begin(),cand->nnjm_ngram_score.end(),0.0);
 }
