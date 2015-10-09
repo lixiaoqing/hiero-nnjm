@@ -12,6 +12,7 @@ struct Models
 	RuleTable *ruletable;
 	LanguageModel *lm_model;
     neuralLM *nnjm_model;
+    set<string> *function_words;
 };
 
 class SentenceTranslator
@@ -49,6 +50,7 @@ class SentenceTranslator
 		RuleTable *ruletable;
 		LanguageModel *lm_model;
 		neuralLM *nnjm_model;
+        set<string> *function_words;
 		Parameter para;
 		Weight feature_weight;
 

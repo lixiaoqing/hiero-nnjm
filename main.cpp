@@ -270,11 +270,23 @@ int main( int argc, char *argv[])
 	Vocab *tgt_vocab = new Vocab(fns.tgt_vocab_file);
 	RuleTable *ruletable = new RuleTable(para.RULE_NUM_LIMIT,weight,fns.rule_table_file,src_vocab,tgt_vocab);
 	LanguageModel *lm_model = new LanguageModel(fns.lm_file,tgt_vocab);
+    set<string> function_words;
+	ifstream fin("data/function-words");
+	if (!fin.is_open())
+	{
+		cerr<<"cannot open function words file!\n";
+		exit(0);
+	}
+    string w;
+	while(fin>>w)
+	{
+        function_words.insert(w);
+	}
 
 	b = clock();
 	cerr<<"loading time: "<<double(b-a)/CLOCKS_PER_SEC<<endl;
 
-	Models models = {src_vocab,tgt_vocab,ruletable,lm_model,NULL};
+	Models models = {src_vocab,tgt_vocab,ruletable,lm_model,NULL,&function_words};
 	translate_file(models,para,weight,fns);
 	b = clock();
 	cerr<<"time cost: "<<double(b-a)/CLOCKS_PER_SEC<<endl;

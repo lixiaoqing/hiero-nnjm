@@ -7,6 +7,7 @@ SentenceTranslator::SentenceTranslator(const Models &i_models, const Parameter &
 	ruletable = i_models.ruletable;
 	lm_model = i_models.lm_model;
     nnjm_model = i_models.nnjm_model;
+    function_words = i_models.function_words;
 	para = i_para;
 	feature_weight = i_weight;
 
@@ -319,11 +320,14 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
         tgt_context.push_back(nnjm_model->lookup_output_word(get_tgt_word(cand->tgt_wids.at(tgt_idx))));
         
         vector<double> nnjm_scores;
-        int nnjm_id = src_nnjm_ids.at(cand->aligned_src_idx.at(tgt_idx)+src_window_size);
-        int wid = src_wids.at(cand->aligned_src_idx.at(tgt_idx));
-        for (auto idx : wid_to_indexes[wid])
+        int src_idx = cand->aligned_src_idx.at(tgt_idx);
+        int nnjm_id = src_nnjm_ids.at(src_idx+src_window_size);
+        int src_wid = src_wids.at(src_idx);
+        string src_word = src_vocab->get_word(src_wid);
+        string tgt_word = get_tgt_word(cand->tgt_wids.at(tgt_idx));
+        if (function_words->find(src_word) != function_words->end() || function_words->find(tgt_word) != function_words->end())
         {
-            vector<int> fifteen_gram = src_windows.at(idx);
+            vector<int> fifteen_gram = src_windows.at(src_idx);
             fifteen_gram.insert(fifteen_gram.end(),tgt_context.begin(),tgt_context.end());
             auto it = nnjm_score_cache.find(fifteen_gram);
             if (it != nnjm_score_cache.end())
@@ -335,6 +339,25 @@ double SentenceTranslator::cal_nnjm_score(Cand *cand)
                 double score = nnjm_model->lookup_ngram(fifteen_gram);
                 nnjm_score_cache.insert(make_pair(fifteen_gram,score));
                 nnjm_scores.push_back(score);
+            }
+        }
+        else
+        {
+            for (auto idx : wid_to_indexes[src_wid])
+            {
+                vector<int> fifteen_gram = src_windows.at(idx);
+                fifteen_gram.insert(fifteen_gram.end(),tgt_context.begin(),tgt_context.end());
+                auto it = nnjm_score_cache.find(fifteen_gram);
+                if (it != nnjm_score_cache.end())
+                {
+                    nnjm_scores.push_back(it->second);
+                }
+                else
+                {
+                    double score = nnjm_model->lookup_ngram(fifteen_gram);
+                    nnjm_score_cache.insert(make_pair(fifteen_gram,score));
+                    nnjm_scores.push_back(score);
+                }
             }
         }
         //cand->nnjm_ngram_score.at(tgt_idx) = *max_element(nnjm_scores.begin(),nnjm_scores.end());
